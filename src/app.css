@@ -5,12 +5,17 @@
   --muted: #6a6a62;
   --line: #d9d6cc;
   --card-bg: #fffef9;
+  --index-bg: rgba(248, 247, 243, 0.92);
   --mono: 'IBM Plex Mono', 'Space Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
   font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -24,6 +29,8 @@ body {
 button {
   font: inherit;
   color: inherit;
+  background: none;
+  border: none;
 }
 
 main {
@@ -85,6 +92,9 @@ p {
   grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
   gap: clamp(1.5rem, 3vw, 4rem);
   padding: 3rem clamp(1rem, 4vw, 6rem) 5rem;
+  max-width: 1320px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .shelves {
@@ -169,6 +179,7 @@ p {
   text-align: left;
   cursor: pointer;
   appearance: none;
+  border-radius: 2px;
 }
 
 .volume-card:focus-visible,
@@ -192,6 +203,11 @@ p {
 .volume-summary {
   color: var(--muted);
   font-size: 0.95rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .volume-links {
@@ -234,7 +250,7 @@ p {
   align-self: flex-start;
   border: 1px solid var(--line);
   padding: 1rem;
-  background: rgba(248, 247, 243, 0.9);
+  background: var(--index-bg);
 }
 
 .shelf-index .index-label {
@@ -259,10 +275,12 @@ p {
   text-decoration: none;
   font-size: 0.95rem;
   color: var(--muted);
+  transition: color 0.2s ease;
 }
 
 .shelf-index a:hover,
-.shelf-index a:focus-visible {
+.shelf-index a:focus-visible,
+.shelf-index a.active {
   color: var(--fg);
 }
 

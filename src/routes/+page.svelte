@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { shelves, type Volume } from '$lib/data/library';
 
   type DrawerState = {
@@ -7,6 +8,9 @@
   } | null;
 
   let drawer: DrawerState = null;
+  let activeShelf = shelves[0]?.id ?? '';
+  let shelfRefs: HTMLElement[] = [];
+  let observer: IntersectionObserver | null = null;
 
   const openDrawer = (volume: Volume, shelfLabel: string) => {
     drawer = { shelfLabel, volume };
@@ -16,6 +20,39 @@
     drawer = null;
   };
 
+  const trackShelf = (node: HTMLElement, index: number) => {
+    shelfRefs[index] = node;
+    observer?.observe(node);
+    return {
+      destroy() {
+        observer?.unobserve(node);
+        shelfRefs = shelfRefs.filter((ref) => ref !== node);
+      }
+    };
+  };
+
+  onMount(() => {
+    observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            activeShelf = entry.target.id;
+          }
+        });
+      },
+      {
+        rootMargin: '-30% 0px -60% 0px',
+        threshold: 0
+      }
+    );
+
+    shelfRefs.forEach((section) => observer?.observe(section));
+
+    return () => {
+      observer?.disconnect();
+      observer = null;
+    };
+  });
 </script>
 
 <svelte:head>
@@ -48,7 +85,7 @@
   <div class="library-body">
     <section class="shelves" aria-label="Project shelves">
       {#each shelves as shelf, index}
-        <section class="shelf" id={shelf.id}>
+        <section class="shelf" id={shelf.id} use:trackShelf={index}>
           <header class="shelf-header">
             <p class="shelf-order">Shelf {String(index + 1).padStart(2, '0')}</p>
             <div class="shelf-heading">
@@ -106,7 +143,15 @@
       <p class="index-label">Shelves</p>
       <ul>
         {#each shelves as shelf}
-          <li><a href={`#${shelf.id}`}>{shelf.label}</a></li>
+          <li>
+            <a
+              href={`#${shelf.id}`}
+              class:active={shelf.id === activeShelf}
+              aria-current={shelf.id === activeShelf ? 'true' : undefined}
+            >
+              {shelf.label}
+            </a>
+          </li>
         {/each}
       </ul>
     </aside>
