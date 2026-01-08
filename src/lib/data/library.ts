@@ -12,7 +12,7 @@ export type Volume = {
   links?: VolumeLink;
 };
 
-export type Shelf = {
+export type Wall = {
   id: string;
   label: string;
   descriptor: string;
@@ -20,12 +20,12 @@ export type Shelf = {
   volumes: Volume[];
 };
 
-export const shelves: Shelf[] = [
+export const walls: Wall[] = [
   {
-    id: 'distributed-systems',
-    label: 'Distributed Systems',
-    descriptor: 'Queues, replication, coordination',
-    focus: 'Latency-sensitive services and control planes',
+    id: 'systems-architecture',
+    label: 'Systems Architecture',
+    descriptor: 'Meshes, ingress, deterministic coordination',
+    focus: 'Control planes that keep distributed services predictable',
     volumes: [
       {
         title: 'Adaptive Mesh Queue',
@@ -38,6 +38,21 @@ export const shelves: Shelf[] = [
         }
       },
       {
+        title: 'Packet Auth Gateway',
+        stack: 'C++ · QUIC · eBPF',
+        summary: 'Inline auth filter layering policy enforcement into QUIC ingress.',
+        metadata: '2022 · Security',
+        details: 'Injects eBPF hooks for token verification and telemetry without breaking transport semantics.'
+      }
+    ]
+  },
+  {
+    id: 'consensus-tooling',
+    label: 'Consensus Tooling',
+    descriptor: 'Simulation, release, rollback symmetry',
+    focus: 'Utilities that stress-test agreements before rollout',
+    volumes: [
+      {
         title: 'Consensus Lightboard',
         stack: 'Rust · Raft · WebAssembly',
         summary: 'Deterministic Raft visualizer validating state-machine assumptions.',
@@ -48,19 +63,22 @@ export const shelves: Shelf[] = [
         }
       },
       {
-        title: 'Packet Auth Gateway',
-        stack: 'C++ · QUIC · eBPF',
-        summary: 'Inline auth filter layering policy enforcement into QUIC ingress.',
-        metadata: '2022 · Security',
-        details: 'Injects eBPF hooks for token verification and telemetry without breaking transport semantics.'
+        title: 'Release Loom',
+        stack: 'Go · GitHub Actions · Nomad',
+        summary: 'Declarative release choreographer aligning infra + app rollouts.',
+        metadata: '2024 · Platform',
+        details: 'Bundles infrastructure plans with service deploys so rollbacks share consistent snapshots.',
+        links: {
+          github: 'https://github.com/example/release-loom'
+        }
       }
     ]
   },
   {
-    id: 'data-observability',
-    label: 'Data + Observability',
-    descriptor: 'Lineage, telemetry, pipelines',
-    focus: 'Keeping datasets trustworthy under load',
+    id: 'data-reliability',
+    label: 'Data Reliability',
+    descriptor: 'Column stores, contracts, lineage',
+    focus: 'Keeping telemetry and ETL streams trustworthy under load',
     volumes: [
       {
         title: 'Signal Atlas',
@@ -73,6 +91,21 @@ export const shelves: Shelf[] = [
         }
       },
       {
+        title: 'Delta Forge',
+        stack: 'Scala · Spark · Delta Lake',
+        summary: 'Streaming ingestion contracts enforcing schema parity.',
+        metadata: '2022 · Data Reliability',
+        details: 'Lightweight contract checks and remediation hooks keep SLA-bound ETL windows uninterrupted.'
+      }
+    ]
+  },
+  {
+    id: 'observability',
+    label: 'Observability',
+    descriptor: 'Narratives, schema drift, trace alignment',
+    focus: 'Interfaces that compress complex incidents into legible stories',
+    volumes: [
+      {
         title: 'Trace Codex',
         stack: 'TypeScript · OpenTelemetry · React',
         summary: 'Trace narratives translating span graphs into incident views.',
@@ -83,37 +116,20 @@ export const shelves: Shelf[] = [
         }
       },
       {
-        title: 'Delta Forge',
-        stack: 'Scala · Spark · Delta Lake',
-        summary: 'Streaming ingestion contracts enforcing schema parity.',
-        metadata: '2022 · Data Reliability',
-        details: 'Lightweight contract checks and remediation hooks keep SLA-bound ETL windows uninterrupted.'
+        title: 'Spec Cartographer',
+        stack: 'TypeScript · D3 · GraphQL',
+        summary: 'Schema-diff explorer auditing interface contracts.',
+        metadata: '2023 · Architecture',
+        details: 'Highlights drift hotspots to guide RFC reviews and prioritize integration fixes.'
       }
     ]
   },
   {
     id: 'platform-automation',
     label: 'Platform Automation',
-    descriptor: 'Tooling, workflows, guardrails',
-    focus: 'Automating releases and governance',
+    descriptor: 'Secrets, ephemeral clusters, guardrails',
+    focus: 'Workflow systems that reduce toil across research teams',
     volumes: [
-      {
-        title: 'Release Loom',
-        stack: 'Go · GitHub Actions · Nomad',
-        summary: 'Declarative release choreographer aligning infra + app rollouts.',
-        metadata: '2024 · Platform',
-        details: 'Bundles infrastructure plans with service deploys so rollbacks share consistent snapshots.',
-        links: {
-          github: 'https://github.com/example/release-loom'
-        }
-      },
-      {
-        title: 'Spec Cartographer',
-        stack: 'TypeScript · D3 · GraphQL',
-        summary: 'Schema-diff explorer auditing interface contracts.',
-        metadata: '2023 · Architecture',
-        details: 'Highlights drift hotspots to guide RFC reviews and prioritize integration fixes.'
-      },
       {
         title: 'Cluster Praxis',
         stack: 'Python · Terraform · Vault',
@@ -123,21 +139,6 @@ export const shelves: Shelf[] = [
         links: {
           demo: 'https://example.com/cluster-praxis'
         }
-      }
-    ]
-  },
-  {
-    id: 'experimental-prototypes',
-    label: 'Experimental Prototypes',
-    descriptor: 'Edges explored to learn constraints',
-    focus: 'Hardware + HCI experiments',
-    volumes: [
-      {
-        title: 'Acoustic Hash Grid',
-        stack: 'Rust · DSP · WebAudio',
-        summary: 'Spatial hashing of acoustic signatures for robotics.',
-        metadata: '2024 · Experiment',
-        details: 'Links microphone arrays to low-latency navigation aids for pallet robots in reflective environments.'
       },
       {
         title: 'Chronicle Delta',
@@ -145,6 +146,21 @@ export const shelves: Shelf[] = [
         summary: 'Offline lab notebook aligning research notes + code snapshots.',
         metadata: '2023 · Workflow',
         details: 'Pairs structured entries with code artifacts for reproducibility in distributed teams.'
+      }
+    ]
+  },
+  {
+    id: 'experimental-signal',
+    label: 'Experimental Signal',
+    descriptor: 'Hardware, DSP meshes, adaptive fabrics',
+    focus: 'Edge prototypes that test bandwidth and physical constraints',
+    volumes: [
+      {
+        title: 'Acoustic Hash Grid',
+        stack: 'Rust · DSP · WebAudio',
+        summary: 'Spatial hashing of acoustic signatures for robotics.',
+        metadata: '2024 · Experiment',
+        details: 'Links microphone arrays to low-latency navigation aids for pallet robots in reflective environments.'
       },
       {
         title: 'Forma Switch',

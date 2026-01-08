@@ -1,75 +1,57 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { shelves, type Volume } from '$lib/data/library';
+  import { walls, type Volume } from '$lib/data/library';
 
   type DrawerState = {
-    shelfLabel: string;
+    wallLabel: string;
     volume: Volume;
   } | null;
 
   let drawer: DrawerState = null;
-  let activeShelf = shelves[0]?.id ?? '';
-  let shelfRefs: HTMLElement[] = [];
-  let observer: IntersectionObserver | null = null;
   let hasEntered = false;
+  let activeWall = walls[0]?.id ?? '';
 
-  const openDrawer = (volume: Volume, shelfLabel: string) => {
-    drawer = { shelfLabel, volume };
+  const openDrawer = (volume: Volume, wallLabel: string) => {
+    drawer = { wallLabel, volume };
   };
 
   const closeDrawer = () => {
     drawer = null;
   };
 
-  const trackShelf = (node: HTMLElement, index: number) => {
-    shelfRefs[index] = node;
-    observer?.observe(node);
-    return {
-      destroy() {
-        observer?.unobserve(node);
-        shelfRefs = shelfRefs.filter((ref) => ref !== node);
-      }
-    };
-  };
-
-  onMount(() => {
-    observer = new IntersectionObserver(
+  const registerWall = (node: HTMLElement, wallId: string) => {
+    const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            activeShelf = entry.target.id;
+            activeWall = wallId;
           }
         });
       },
       {
-        rootMargin: '-30% 0px -60% 0px',
+        rootMargin: '-40% 0px -40% 0px',
         threshold: 0
       }
     );
 
-    shelfRefs.forEach((section) => observer?.observe(section));
+    observer.observe(node);
 
-    return () => {
-      observer?.disconnect();
-      observer = null;
+    return {
+      destroy() {
+        observer.disconnect();
+      }
     };
-  });
+  };
 
   const enterLibrary = () => {
     hasEntered = true;
-    if (typeof document !== 'undefined') {
-      setTimeout(() => {
-        document.getElementById('top')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 50);
-    }
   };
 </script>
 
 <svelte:head>
-  <title>Milestone 2 · Systems Library Portfolio</title>
+  <title>Systems Library · Hexagonal Archive</title>
   <meta
     name="description"
-    content="Structural wireframe for the Systems Library portfolio: landing, shelves, and drawer plan."
+    content="Hexagonal archive of engineered systems arranged across six repeating walls."
   />
 </svelte:head>
 
@@ -84,104 +66,81 @@
     <div class="start-panel">
       <p class="start-label">Systems Archive</p>
       <h1 id="start-title">
-        <span>THE INFINITE</span>
-        <span>LIBRARY</span>
+        <span>HEXAGONAL</span>
+        <span>INFINITE LIBRARY</span>
       </h1>
       <p class="start-role">Software Engineer</p>
-      <p class="start-focus">Systems • AI • Web</p>
+      <p class="start-focus">Systems · AI · Web</p>
       <button class="enter-button" type="button" on:click={enterLibrary}>
         Enter Library
       </button>
     </div>
   </section>
 {:else}
-  <main class="library-page">
-    <section class="entry-screen" id="top">
-      <div class="entry-content">
-        <p class="entry-label">Systems Portfolio</p>
-        <h1>Systems Library</h1>
-        <p class="entry-subtitle">
-          Vertical shelves extend upward and downward. Each horizontal row is a catalog of self-contained
-          volumes spanning distributed systems, data, automation, and experiments.
+  <main class="library-shell">
+    <section class="core-panel" id="core">
+      <div class="core-heading">
+        <p class="core-label">Library Core</p>
+        <h1>Systems Archive</h1>
+        <p class="core-summary">
+          Six walls of engineered systems. Each shelf is a category, each volume a single project. Scroll
+          vertically to move between walls and horizontally to scan the volumes within.
         </p>
-        <p class="entry-instruction">Scroll vertically to navigate shelves. Swipe horizontally to scan volumes.</p>
+      </div>
+      <div class="core-meta">
+        <p>Walls: {walls.length}</p>
+        <p>Volumes: {walls.reduce((count, wall) => count + wall.volumes.length, 0)}</p>
       </div>
     </section>
 
-    <div class="library-body">
-      <section class="shelves" aria-label="Project shelves">
-        {#each shelves as shelf, index}
-          <section class="shelf" id={shelf.id} use:trackShelf={index}>
-            <header class="shelf-header">
-              <p class="shelf-order">Shelf {String(index + 1).padStart(2, '0')}</p>
-              <div class="shelf-heading">
-                <h2>{shelf.label}</h2>
-                <p class="shelf-descriptor">{shelf.descriptor}</p>
-                <p class="shelf-focus">{shelf.focus}</p>
-              </div>
-              <p class="shelf-count">{shelf.volumes.length} volumes</p>
-            </header>
-            <ul class="volume-row" aria-label={`${shelf.label} volumes`}>
-              {#each shelf.volumes as volume}
-                <li class="volume-item" role="listitem">
-                  <button
-                    type="button"
-                    class="volume-card"
-                    on:click={() => openDrawer(volume, shelf.label)}
-                  >
-                    <p class="volume-meta">{volume.metadata}</p>
-                    <h3 class="volume-title">{volume.title}</h3>
-                    <p class="volume-stack">{volume.stack}</p>
-                    <p class="volume-summary">{volume.summary}</p>
-                    <div class="volume-links" aria-label="Volume links">
-                      {#if volume.links?.github}
-                        <a
-                          class="volume-link"
-                          href={volume.links.github}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-label={`${volume.title} repository`}
-                        >
-                          GH
-                        </a>
-                      {/if}
-                      {#if volume.links?.demo}
-                        <a
-                          class="volume-link"
-                          href={volume.links.demo}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-label={`${volume.title} live demo`}
-                        >
-                          ↗
-                        </a>
-                      {/if}
-                    </div>
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          </section>
+    <aside class="wall-index" aria-label="Wall index">
+      <p class="index-label">Walls</p>
+      <ul>
+        {#each walls as wall}
+          <li>
+            <a
+              href={`#${wall.id}`}
+              class:active={activeWall === wall.id}
+              aria-current={activeWall === wall.id ? 'true' : undefined}
+            >
+              {wall.label}
+            </a>
+          </li>
         {/each}
-      </section>
+      </ul>
+    </aside>
 
-      <aside class="shelf-index" aria-label="Shelf index">
-        <p class="index-label">Shelves</p>
-        <ul>
-          {#each shelves as shelf}
-            <li>
-              <a
-                href={`#${shelf.id}`}
-                class:active={shelf.id === activeShelf}
-                aria-current={shelf.id === activeShelf ? 'true' : undefined}
+    <section class="walls">
+      {#each walls as wall, index}
+        <article class="wall-section" id={wall.id} use:registerWall={wall.id}>
+          <header class="wall-header">
+            <div>
+              <p class="wall-order">Wall {String(index + 1).padStart(2, '0')}</p>
+              <h2>{wall.label}</h2>
+            </div>
+            <div class="wall-description">
+              <p class="wall-descriptor">{wall.descriptor}</p>
+              <p class="wall-focus">{wall.focus}</p>
+            </div>
+          </header>
+          <div class="volume-track" aria-label={`${wall.label} volumes`} role="list">
+            {#each wall.volumes as volume}
+              <button
+                type="button"
+                class="volume-card"
+                role="listitem"
+                on:click={() => openDrawer(volume, wall.label)}
               >
-                {shelf.label}
-              </a>
-            </li>
-          {/each}
-        </ul>
-      </aside>
-    </div>
+                <p class="volume-title">{volume.title}</p>
+                <p class="volume-stack">{volume.stack}</p>
+                <p class="volume-summary">{volume.summary}</p>
+                <p class="volume-meta">{volume.metadata}</p>
+              </button>
+            {/each}
+          </div>
+        </article>
+      {/each}
+    </section>
   </main>
 
   <div class="drawer-backdrop" class:visible={!!drawer} on:click={closeDrawer} aria-hidden="true"></div>
@@ -190,19 +149,11 @@
       ×
     </button>
     {#if drawer}
-      <p class="drawer-shelf">{drawer.shelfLabel}</p>
+      <p class="drawer-shelf">{drawer.wallLabel}</p>
       <h3 class="drawer-title">{drawer.volume.title}</h3>
       <p class="drawer-stack">{drawer.volume.stack}</p>
       <p class="drawer-meta">{drawer.volume.metadata}</p>
       <p class="drawer-details">{drawer.volume.details}</p>
-      <div class="drawer-links">
-        {#if drawer.volume.links?.github}
-          <a href={drawer.volume.links.github} target="_blank" rel="noreferrer">Repository</a>
-        {/if}
-        {#if drawer.volume.links?.demo}
-          <a href={drawer.volume.links.demo} target="_blank" rel="noreferrer">Live Demo</a>
-        {/if}
-      </div>
     {/if}
   </section>
 {/if}
