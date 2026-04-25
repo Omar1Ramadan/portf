@@ -41,6 +41,8 @@
     | { type: 'portfolio-project'; title: string; url: string; project: Project }
     | { type: 'terminal-info'; title: string; url: string }
     | { type: 'dogs-gallery'; title: string; url: string; images: string[] }
+    | { type: 'dog-detail'; title: string; url: string; image: string; index: number }
+    | { type: 'resume-viewer'; title: string; url: string; pdfUrl: string }
     | { type: 'not-found'; title: string; url: string; attempted: string };
 
   type BrowserTab = {
@@ -89,6 +91,10 @@
     'https://placedog.net/640/640?id=55',
     'https://placedog.net/640/640?id=66'
   ];
+  const githubUrl = 'https://github.com/Omar1Ramadan';
+  const linkedinUrl = 'https://www.linkedin.com/in/omarramadanb91b298/';
+  const emailUrl = 'mailto:oramadan2004@gmail.com';
+  const resumePdfUrl = '/OmarRamadan_Resume.pdf';
 
   let history: HistoryEntry[] = [];
   let command = '';
@@ -219,6 +225,38 @@
     const q = query.toLowerCase();
     const results: SearchResult[] = [];
 
+    if ('github'.includes(q) || q.includes('github')) {
+      results.push({
+        title: 'GitHub Profile',
+        url: githubUrl,
+        snippet: 'Open Omar Ramadan on GitHub.'
+      });
+    }
+
+    if ('linkedin'.includes(q) || q.includes('linkedin') || q.includes('linkedin')) {
+      results.push({
+        title: 'LinkedIn Profile',
+        url: linkedinUrl,
+        snippet: 'Open Omar Ramadan on LinkedIn.'
+      });
+    }
+
+    if ('resume'.includes(q) || q.includes('resume') || q.includes('cv')) {
+      results.push({
+        title: 'Resume',
+        url: 'portfolio.local/resume',
+        snippet: 'Open Omar Ramadan resume PDF inside the browser.'
+      });
+    }
+
+    if ('email'.includes(q) || q.includes('email') || q.includes('contact')) {
+      results.push({
+        title: 'Email',
+        url: emailUrl,
+        snippet: 'Send an email to oramadan2004@gmail.com.'
+      });
+    }
+
     if ('portfolio'.includes(q) || q.includes('portfolio')) {
       results.push({
         title: 'Portfolio Home',
@@ -261,6 +299,36 @@
     const raw = input.trim();
     const normalized = normalizeInput(input);
 
+    if (
+      normalized === githubUrl.toLowerCase() ||
+      normalized === 'github' ||
+      normalized === 'github.com' ||
+      normalized === 'github.local'
+    ) {
+      window.open(githubUrl, '_blank', 'noopener,noreferrer');
+      return createGoogleHomePage();
+    }
+
+    if (
+      normalized === linkedinUrl.toLowerCase() ||
+      normalized === 'linkedin' ||
+      normalized === 'linkedin.com' ||
+      normalized === 'linkedin.local'
+    ) {
+      window.open(linkedinUrl, '_blank', 'noopener,noreferrer');
+      return createGoogleHomePage();
+    }
+
+    if (
+      normalized === emailUrl.toLowerCase() ||
+      normalized === 'email' ||
+      normalized === 'mail' ||
+      normalized === 'contact'
+    ) {
+      window.open(emailUrl, '_self');
+      return createGoogleHomePage();
+    }
+
     if (!normalized || normalized === 'google.local' || normalized === 'google' || normalized === 'new tab') {
       return createGoogleHomePage();
     }
@@ -281,8 +349,42 @@
       return { type: 'terminal-info', title: 'Terminal', url: 'portfolio.local/terminal' };
     }
 
-    if (normalized === 'dogs.local' || normalized === 'dogs' || normalized === 'dog pics') {
+    if (
+      normalized === 'portfolio.local/resume' ||
+      normalized === 'resume' ||
+      normalized === 'cv' ||
+      normalized === 'resume.local'
+    ) {
+      return {
+        type: 'resume-viewer',
+        title: 'Resume',
+        url: 'portfolio.local/resume',
+        pdfUrl: resumePdfUrl
+      };
+    }
+
+    if (
+      normalized === 'dogs.local' ||
+      normalized === 'dogs' ||
+      normalized === 'dog pics' ||
+      normalized === 'cats' ||
+      normalized === 'cat' ||
+      normalized === 'cats.local'
+    ) {
       return { type: 'dogs-gallery', title: 'Dogs', url: 'dogs.local', images: dogImages };
+    }
+
+    if (normalized.startsWith('dogs.local/')) {
+      const maybeIndex = Number(normalized.split('/').at(-1));
+      if (Number.isInteger(maybeIndex) && maybeIndex >= 1 && maybeIndex <= dogImages.length) {
+        return {
+          type: 'dog-detail',
+          title: `Dog ${maybeIndex}`,
+          url: `dogs.local/${maybeIndex}`,
+          image: dogImages[maybeIndex - 1],
+          index: maybeIndex
+        };
+      }
     }
 
     if (normalized.startsWith('portfolio.local/project/')) {
@@ -908,6 +1010,22 @@
                   <span class="browser-shortcut-icon portfolio-link"></span>
                   <span>Portfolio</span>
                 </button>
+                <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('github')}>
+                  <span class="browser-shortcut-icon social-icon github-icon"></span>
+                  <span>GitHub</span>
+                </button>
+                <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('linkedin')}>
+                  <span class="browser-shortcut-icon social-icon linkedin-icon"></span>
+                  <span>LinkedIn</span>
+                </button>
+                <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('resume')}>
+                  <span class="browser-shortcut-icon social-icon resume-icon"></span>
+                  <span>Resume</span>
+                </button>
+                <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('email')}>
+                  <span class="browser-shortcut-icon social-icon email-icon"></span>
+                  <span>Email</span>
+                </button>
                 <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('portfolio.local/projects')}>
                   <span class="browser-shortcut-icon"></span>
                   <span>Projects</span>
@@ -916,9 +1034,9 @@
                   <span class="browser-shortcut-icon"></span>
                   <span>Terminal</span>
                 </button>
-                <button type="button" class="browser-shortcut" on:click={() => navigateBrowser('frontend portfolio')}>
+                <button type="button" class="browser-shortcut" on:click={() => navigateBrowser('dogs')}>
                   <span class="browser-shortcut-icon"></span>
-                  <span>Search</span>
+                  <span>Dogs</span>
                 </button>
               </div>
             </div>
@@ -941,6 +1059,10 @@
             </div>
           {:else if activeBrowserPage?.type === 'portfolio-home'}
             <div class="browser-portfolio browser-portfolio-preview">
+              <div class="portfolio-preview-actions">
+                <a class="portfolio-preview-link" href={resumePdfUrl} target="_blank" rel="noreferrer">Resume PDF</a>
+                <a class="portfolio-preview-link" href={emailUrl}>Email</a>
+              </div>
               <div class="portfolio-preview-shell" aria-hidden="true">
                 <div class="preview-canvas">
                   <div class="preview-grid-lines"></div>
@@ -951,12 +1073,19 @@
                         <div class="preview-status-dot"></div>
                         <div class="preview-status-line"></div>
                       </div>
+                      <div class="preview-eyebrow">signal archive / prototype profile / visual draft</div>
                       <div class="preview-name-block"></div>
                       <div class="preview-role-line"></div>
                       <div class="preview-role-line short"></div>
                       <div class="preview-copy-line"></div>
                       <div class="preview-copy-line"></div>
                       <div class="preview-copy-line mid"></div>
+                      <div class="preview-gibberish-block">
+                        vexora quantic lumen drift, signal bloom over static fields and silent modules.
+                      </div>
+                      <div class="preview-gibberish-block faint">
+                        nullwave archive fragment: soft relay, chrome atlas, memory pulse, green horizon.
+                      </div>
                       <div class="preview-pill-row">
                         <div class="preview-pill"></div>
                         <div class="preview-pill"></div>
@@ -965,10 +1094,19 @@
                     </div>
 
                     <div class="preview-hero-side">
-                      <div class="preview-portrait"></div>
+                      <div class="preview-portrait">
+                        <img
+                          src="https://picsum.photos/seed/portfolio-hero/520/640"
+                          alt="Abstract profile placeholder"
+                          loading="lazy"
+                        />
+                      </div>
                       <div class="preview-badge-card">
                         <div class="preview-line short"></div>
                         <div class="preview-line tiny"></div>
+                        <div class="preview-card-copy tiny">
+                          prism relay / ghost index / north sector
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -992,13 +1130,22 @@
                       <div class="preview-card preview-card-medium">
                         <div class="preview-line"></div>
                         <div class="preview-line short"></div>
+                        <div class="preview-card-copy">
+                          orbital syntax, velvet packets, and a small chorus of phantom metrics.
+                        </div>
                       </div>
                       <div class="preview-row">
                         <div class="preview-card preview-card-small">
                           <div class="preview-line short"></div>
+                          <div class="preview-card-copy tiny">
+                            axiom drift
+                          </div>
                         </div>
                         <div class="preview-card preview-card-small accent">
                           <div class="preview-line tiny"></div>
+                          <div class="preview-card-copy tiny">
+                            neon cache
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1058,15 +1205,106 @@
             </div>
           {:else if activeBrowserPage?.type === 'dogs-gallery'}
             <div class="browser-results browser-dogs">
-              <p class="results-meta">dogs.local</p>
               <h2>Dog image gallery</h2>
+              <div class="dog-feature">
+                <div class="dog-feature-media">
+                  <button
+                    type="button"
+                    class="dog-media-button"
+                    on:click={() => openBrowserPage('dogs.local/1')}
+                  >
+                    <img src={activeBrowserPage.images[0]} alt="Featured dog" loading="eager" />
+                  </button>
+                </div>
+                <div class="dog-feature-copy">
+                  <div class="dog-chip-row">
+                    <span class="dog-chip">Playful</span>
+                    <span class="dog-chip">Very good</span>
+                    <span class="dog-chip">Certified dog</span>
+                  </div>
+                  <p>
+                    A deliberately unnecessary but objectively important dog page. Search for cats, get dogs anyway.
+                  </p>
+                  <div class="dog-stats">
+                    <div class="dog-stat">
+                      <span>Images</span>
+                      <strong>{activeBrowserPage.images.length}</strong>
+                    </div>
+                    <div class="dog-stat">
+                      <span>Mood</span>
+                      <strong>Excellent</strong>
+                    </div>
+                    <div class="dog-stat">
+                      <span>Bark level</span>
+                      <strong>Unknown</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div class="dog-grid">
-                {#each activeBrowserPage.images as image, index}
-                  <figure class="dog-card">
-                    <img src={image} alt={`Dog photo ${index + 1}`} loading="lazy" />
-                  </figure>
+                {#each activeBrowserPage.images.slice(1) as image, index}
+                  <button
+                    type="button"
+                    class="dog-card"
+                    on:click={() => openBrowserPage(`dogs.local/${index + 2}`)}
+                  >
+                    <img src={image} alt={`Dog photo ${index + 2}`} loading="lazy" />
+                  </button>
                 {/each}
               </div>
+            </div>
+          {:else if activeBrowserPage?.type === 'dog-detail'}
+            <div class="browser-results browser-dogs">
+              <h2>Dog #{activeBrowserPage.index}</h2>
+              <div class="dog-detail-layout">
+                <div class="dog-detail-image">
+                  <img src={activeBrowserPage.image} alt={`Dog photo ${activeBrowserPage.index}`} loading="eager" />
+                </div>
+                <div class="dog-feature-copy">
+                  <div class="dog-chip-row">
+                    <span class="dog-chip">Clicked</span>
+                    <span class="dog-chip">Important</span>
+                    <span class="dog-chip">Dog confirmed</span>
+                  </div>
+                  <p>
+                    You clicked a dog. This is now a higher-priority dog than the other dogs on the page.
+                  </p>
+                  <div class="browser-shortcuts browser-shortcuts-left">
+                    <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('dogs.local')}>
+                      <span class="browser-shortcut-icon portfolio-link"></span>
+                      <span>Back to dogs</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {:else if activeBrowserPage?.type === 'resume-viewer'}
+            <div class="browser-results browser-resume">
+              <div class="resume-toolbar resume-toolbar-top">
+                <a
+                  class="resume-icon-link"
+                  href={activeBrowserPage.pdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Download resume PDF"
+                  title="Download PDF"
+                >
+                  <span class="resume-icon download-icon"></span>
+                </a>
+                <a
+                  class="resume-icon-link"
+                  href={emailUrl}
+                  aria-label="Email Omar Ramadan"
+                  title="Email"
+                >
+                  <span class="resume-icon email-small-icon"></span>
+                </a>
+              </div>
+              <iframe
+                class="resume-frame"
+                src={`${activeBrowserPage.pdfUrl}#zoom=page-width&view=FitH`}
+                title="Omar Ramadan Resume"
+              ></iframe>
             </div>
           {:else if activeBrowserPage?.type === 'not-found'}
             <div class="browser-portfolio">
@@ -1665,7 +1903,33 @@
     background: transparent;
     color: #9aa0a6;
     font: 500 16px/1 'IBM Plex Mono', monospace;
-    opacity: 0.6;
+    opacity: 0.82;
+    cursor: pointer;
+    transition:
+      background-color 0.14s ease,
+      color 0.14s ease,
+      opacity 0.14s ease;
+  }
+
+  .browser-nav:hover,
+  .browser-nav:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e8eaed;
+  }
+
+  .browser-nav:active {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .browser-nav:disabled {
+    cursor: default;
+    opacity: 0.38;
+  }
+
+  .browser-nav:disabled:hover,
+  .browser-nav:disabled:focus-visible {
+    background: transparent;
+    color: #9aa0a6;
   }
 
   .address-bar {
@@ -1830,6 +2094,68 @@
     font: 600 12px/1 'IBM Plex Mono', monospace;
   }
 
+  .browser-shortcut-icon.social-icon::before {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: white;
+    font: 700 12px/1 'IBM Plex Mono', monospace;
+  }
+
+  .browser-shortcut-icon.github-icon {
+    background: linear-gradient(135deg, #2b3137, #11161c);
+  }
+
+  .browser-shortcut-icon.github-icon::before {
+    content: 'GH';
+  }
+
+  .browser-shortcut-icon.linkedin-icon {
+    background: linear-gradient(135deg, #1d7cf2, #0a58c8);
+  }
+
+  .browser-shortcut-icon.linkedin-icon::before {
+    content: 'in';
+  }
+
+  .browser-shortcut-icon.resume-icon {
+    border-radius: 10px;
+    background: linear-gradient(180deg, #fff4df, #f7c46d);
+  }
+
+  .browser-shortcut-icon.resume-icon::before {
+    content: '';
+    position: absolute;
+    inset: 6px 7px 6px 7px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow:
+      0 0 0 1px rgba(173, 100, 15, 0.18),
+      0 4px 0 -3px rgba(173, 100, 15, 0.32),
+      0 8px 0 -7px rgba(173, 100, 15, 0.28);
+  }
+
+  .browser-shortcut-icon.resume-icon::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    right: 7px;
+    width: 7px;
+    height: 7px;
+    background: rgba(255, 255, 255, 0.96);
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+    box-shadow: -1px 1px 0 0 rgba(173, 100, 15, 0.18);
+  }
+
+  .browser-shortcut-icon.email-icon {
+    background: linear-gradient(135deg, #c084fc, #7c3aed);
+  }
+
+  .browser-shortcut-icon.email-icon::before {
+    content: '@';
+  }
+
   .browser-results,
   .browser-portfolio {
     padding: 1.4rem 1.4rem 2rem;
@@ -1839,6 +2165,35 @@
   .browser-portfolio-preview {
     min-height: 100%;
     padding: 0;
+  }
+
+  .portfolio-preview-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    padding: 1rem 1.4rem 0;
+  }
+
+  .portfolio-preview-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+    color: #e8eaed;
+    text-decoration: none;
+    font: 500 0.82rem/1 'IBM Plex Mono', monospace;
+    transition:
+      background-color 0.14s ease,
+      border-color 0.14s ease;
+  }
+
+  .portfolio-preview-link:hover,
+  .portfolio-preview-link:focus-visible {
+    border-color: rgba(138, 180, 248, 0.34);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .browser-results h2,
@@ -1918,8 +2273,195 @@
     font: 500 0.92rem/1 'Space Grotesk', sans-serif;
   }
 
+  .browser-resume {
+    min-height: 100%;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.9rem;
+  }
+
+  .resume-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .resume-toolbar-top {
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .resume-frame {
+    width: 100%;
+    min-height: calc(100vh - 220px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    background: white;
+  }
+
+  .resume-icon-link {
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    text-decoration: none;
+    transition:
+      background-color 0.14s ease,
+      border-color 0.14s ease,
+      transform 0.14s ease;
+  }
+
+  .resume-icon-link:hover,
+  .resume-icon-link:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(138, 180, 248, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .resume-icon {
+    position: relative;
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+  }
+
+  .download-icon::before,
+  .download-icon::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #e8eaed;
+  }
+
+  .download-icon::before {
+    top: 1px;
+    width: 2px;
+    height: 9px;
+  }
+
+  .download-icon::after {
+    bottom: 1px;
+    width: 10px;
+    height: 2px;
+    border-radius: 999px;
+    box-shadow:
+      0 -2px 0 0 #e8eaed,
+      -3px -4px 0 -2px #e8eaed,
+      3px -4px 0 -2px #e8eaed;
+  }
+
+  .email-small-icon::before,
+  .email-small-icon::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid #e8eaed;
+    border-radius: 3px;
+  }
+
+  .email-small-icon::after {
+    inset: 3px 2px auto 2px;
+    height: 0;
+    border-width: 0 0 1.5px 0;
+    border-radius: 0;
+    transform: skewY(-22deg);
+    box-shadow:
+      0 0 0 0 transparent,
+      4px 0 0 0 transparent;
+  }
+
   .browser-dogs {
     align-content: start;
+  }
+
+  .dog-feature {
+    display: grid;
+    grid-template-columns: minmax(260px, 1.05fr) minmax(220px, 0.95fr);
+    gap: 1rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .dog-feature-media,
+  .dog-feature-copy {
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .dog-media-button {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .dog-feature-media img {
+    width: 100%;
+    height: 100%;
+    min-height: 280px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .dog-feature-copy {
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .dog-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .dog-chip {
+    padding: 0.4rem 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #d9f7e1;
+    font: 500 0.78rem/1 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .dog-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .dog-stat {
+    padding: 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .dog-stat span {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: #8ab4f8;
+    font: 500 0.76rem/1 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .dog-stat strong {
+    color: #f4f7fa;
+    font: 600 1rem/1.2 'Space Grotesk', sans-serif;
   }
 
   .dog-grid {
@@ -1931,15 +2473,50 @@
 
   .dog-card {
     margin: 0;
-    overflow: hidden;
+    padding: 0;
     border: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    overflow: hidden;
     border-radius: 16px;
     background: rgba(255, 255, 255, 0.03);
+    transition:
+      transform 0.14s ease,
+      border-color 0.14s ease,
+      background-color 0.14s ease;
+  }
+
+  .dog-card:hover,
+  .dog-card:focus-visible,
+  .dog-media-button:hover,
+  .dog-media-button:focus-visible {
+    transform: translateY(-2px);
+    border-color: rgba(138, 180, 248, 0.38);
   }
 
   .dog-card img {
     width: 100%;
     height: 220px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .dog-detail-layout {
+    display: grid;
+    grid-template-columns: minmax(300px, 1.1fr) minmax(220px, 0.9fr);
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .dog-detail-image {
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .dog-detail-image img {
+    width: 100%;
+    height: min(58vh, 560px);
     object-fit: cover;
     display: block;
   }
@@ -2016,6 +2593,13 @@
     background: rgba(138, 180, 248, 0.34);
   }
 
+  .preview-eyebrow {
+    color: rgba(78, 250, 123, 0.72);
+    font: 500 0.66rem/1.4 'IBM Plex Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
   .preview-name-block {
     width: min(420px, 85%);
     height: 58px;
@@ -2045,6 +2629,22 @@
     width: 84%;
   }
 
+  .preview-gibberish-block,
+  .preview-card-copy {
+    color: rgba(226, 236, 229, 0.62);
+    font: 500 0.72rem/1.45 'IBM Plex Mono', monospace;
+    letter-spacing: 0.01em;
+  }
+
+  .preview-gibberish-block.faint {
+    color: rgba(138, 180, 248, 0.54);
+  }
+
+  .preview-card-copy.tiny {
+    font-size: 0.66rem;
+    line-height: 1.35;
+  }
+
   .preview-hero-side {
     align-content: start;
   }
@@ -2056,6 +2656,15 @@
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(226, 233, 240, 0.92)),
       rgba(255, 255, 255, 0.9);
+    overflow: hidden;
+  }
+
+  .preview-portrait img {
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    object-fit: cover;
+    display: block;
   }
 
   .preview-badge-card {
@@ -2689,6 +3298,12 @@
   }
 
   @media (max-width: 720px) {
+    .dog-feature,
+    .dog-stats,
+    .dog-detail-layout {
+      grid-template-columns: 1fr;
+    }
+
     .taskbar {
       bottom: 10px;
     }
