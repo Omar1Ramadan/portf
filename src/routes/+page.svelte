@@ -1,12 +1,15 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import {
-    portfolioContent,
     type Achievement,
+    type Experience,
     type LinkItem,
+    type PortfolioContent,
     type Project,
     type SkillGroup
   } from '$lib/data/portfolio';
+
+  export let data: { portfolio: PortfolioContent };
 
   type HistoryEntry =
     | { id: number; type: 'system'; lines: string[] }
@@ -21,6 +24,7 @@
         stats: Array<{ label: string; value: string }>;
       }
     | { id: number; type: 'projects'; projects: Project[] }
+    | { id: number; type: 'experience'; items: Experience[] }
     | { id: number; type: 'project'; project: Project }
     | { id: number; type: 'skills'; groups: SkillGroup[] }
     | { id: number; type: 'proof'; items: Achievement[] }
@@ -38,6 +42,7 @@
     | { type: 'search-results'; title: string; url: string; query: string; results: SearchResult[] }
     | { type: 'portfolio-home'; title: string; url: string }
     | { type: 'portfolio-projects'; title: string; url: string }
+    | { type: 'portfolio-experience'; title: string; url: string }
     | { type: 'portfolio-project'; title: string; url: string; project: Project }
     | { type: 'terminal-info'; title: string; url: string }
     | { type: 'dogs-gallery'; title: string; url: string; images: string[] }
@@ -61,12 +66,22 @@
     minimized: boolean;
   };
 
-  const { hero, projects, skills, achievements, about } = portfolioContent;
+  let portfolio: PortfolioContent = data.portfolio;
+  let hero = portfolio.hero;
+  let projects = portfolio.projects;
+  let experience = portfolio.experience;
+  let skills = portfolio.skills;
+  let achievements = portfolio.achievements;
+  let about = portfolio.about;
+
+  $: portfolio = data.portfolio;
+  $: ({ hero, projects, experience, skills, achievements, about } = portfolio);
 
   const supportedCommands = [
     '/help',
     '/about',
     '/projects',
+    '/experience',
     '/project <slug|number>',
     '/skills',
     '/proof',
@@ -273,6 +288,14 @@
       });
     }
 
+    if ('experience'.includes(q) || q.includes('experience') || q.includes('work')) {
+      results.push({
+        title: 'Experience',
+        url: 'portfolio.local/experience',
+        snippet: 'Review current roles, engineering work, and operations experience.'
+      });
+    }
+
     if ('terminal'.includes(q) || q.includes('shell')) {
       results.push({
         title: 'Portfolio Terminal',
@@ -343,6 +366,10 @@
 
     if (normalized === 'portfolio.local/projects' || normalized === 'projects') {
       return { type: 'portfolio-projects', title: 'Projects', url: 'portfolio.local/projects' };
+    }
+
+    if (normalized === 'portfolio.local/experience' || normalized === 'experience') {
+      return { type: 'portfolio-experience', title: 'Experience', url: 'portfolio.local/experience' };
     }
 
     if (normalized === 'portfolio.local/terminal' || normalized === 'terminal') {
@@ -677,6 +704,9 @@
         break;
       case '/projects':
         history = [...history, { id: nextId++, type: 'projects', projects }];
+        break;
+      case '/experience':
+        history = [...history, { id: nextId++, type: 'experience', items: experience }];
         break;
       case '/project':
         pushProjectEntry(payload);
@@ -1176,6 +1206,20 @@
                 {/each}
               </div>
             </div>
+          {:else if activeBrowserPage?.type === 'portfolio-experience'}
+            <div class="browser-results">
+              <p class="results-meta">portfolio.local/experience</p>
+              <div class="results-list">
+                {#each experience as item}
+                  <article class="result-card result-card-static">
+                    <span class="result-url">{item.organization}</span>
+                    <strong>{item.role}</strong>
+                    <span>{item.summary}</span>
+                    <span class="result-url">{item.period} • {item.location}</span>
+                  </article>
+                {/each}
+              </div>
+            </div>
           {:else if activeBrowserPage?.type === 'portfolio-project'}
             <div class="browser-portfolio">
               <p class="results-meta">{activeBrowserPage.url}</p>
@@ -1191,7 +1235,7 @@
             <div class="browser-portfolio">
               <p class="results-meta">portfolio.local/terminal</p>
               <h2>Portfolio Terminal</h2>
-              <p>Use the desktop terminal for command-based browsing of about, projects, skills, proof, and contact.</p>
+              <p>Use the desktop terminal for command-based browsing of about, projects, experience, skills, proof, and contact.</p>
               <button
                 type="button"
                 class="browser-open-terminal"
@@ -1429,6 +1473,33 @@
                       </span>
                       <span class="project-meta">{project.status}</span>
                     </button>
+                  {/each}
+                </div>
+              </article>
+            {:else if entry.type === 'experience'}
+              <article class="entry entry-block">
+                <p class="entry-label">experience</p>
+                <div class="skill-grid">
+                  {#each entry.items as item}
+                    <section class="skill-card">
+                      <h2>{item.role}</h2>
+                      <div class="inline-meta">
+                        <span>{item.organization}</span>
+                        <span>{item.period}</span>
+                      </div>
+                      <p>{item.summary}</p>
+                      <p>{item.location}</p>
+                      <ul class="detail-list">
+                        {#each item.highlights as point}
+                          <li>{point}</li>
+                        {/each}
+                      </ul>
+                      <div class="token-row">
+                        {#each item.stack as token}
+                          <span class="token">{token}</span>
+                        {/each}
+                      </div>
+                    </section>
                   {/each}
                 </div>
               </article>
@@ -2247,6 +2318,16 @@
   .result-card strong {
     font: 600 1.05rem/1.3 'Space Grotesk', sans-serif;
     color: #8ab4f8;
+  }
+
+  .result-card-static {
+    cursor: default;
+  }
+
+  .result-card-static:hover,
+  .result-card-static:focus-visible {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
   }
 
   .result-card span:last-child {

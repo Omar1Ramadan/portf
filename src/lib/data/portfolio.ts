@@ -31,6 +31,16 @@ export type Project = {
   accentSoft: string;
 };
 
+export type Experience = {
+  role: string;
+  organization: string;
+  location: string;
+  period: string;
+  summary: string;
+  highlights: string[];
+  stack: string[];
+};
+
 export type SkillGroup = {
   title: string;
   summary: string;
@@ -55,143 +65,368 @@ export type AboutContent = {
 export type PortfolioContent = {
   hero: HeroContent;
   projects: Project[];
+  experience: Experience[];
   skills: SkillGroup[];
   achievements: Achievement[];
   about: AboutContent;
 };
 
+export type GitHubRepoSummary = {
+  name: string;
+  fullName: string;
+  htmlUrl: string;
+  description: string | null;
+  homepage: string | null;
+  updatedAt: string;
+  pushedAt: string | null;
+  language: string | null;
+  topics: string[];
+  stars: number;
+  archived: boolean;
+  fork: boolean;
+  visibility: string;
+};
+
+const accentPairs = [
+  { accent: '#1d7f76', accentSoft: '#c9ece8' },
+  { accent: '#b2682f', accentSoft: '#f2d6bd' },
+  { accent: '#5f63d3', accentSoft: '#d8dafb' },
+  { accent: '#7d8d2f', accentSoft: '#e4ebbc' }
+] as const;
+
+const curatedRepoKeys = new Set([
+  'omar1ramadan/fishy',
+  'omar1ramadan/datacarellc',
+  'omar1ramadan/mario-kart-rl',
+  'omar1ramadan/folium'
+]);
+
 export const portfolioContent: PortfolioContent = {
   hero: {
-    eyebrow: 'Selected collection',
-    name: 'Omar',
-    role: 'Developer building clear, durable interfaces.',
+    eyebrow: 'Software engineering + applied AI',
+    name: 'Omar Ramadan',
+    role: 'Software engineering student building ML, autonomy, and full-stack systems.',
     summary:
-      "I turn ambitious ideas into focused products. This portfolio now favors structure, readability, and honest proof over novelty for novelty's sake.",
+      'I build products that sit at the intersection of software engineering, applied machine learning, and real-world systems. Most of my work has been in autonomy, data-heavy applications, and end-to-end products that need both engineering discipline and clear UX.',
     note:
-      'Currently strongest in Svelte, TypeScript, frontend architecture, and shipping interfaces that stay legible as the scope changes.',
+      'Right now I am focused on AI/ML products, embedded autonomy, and full-stack systems that can move from prototype to something people can actually use.',
     links: [
-      { label: 'View work', href: '#projects', variant: 'primary' },
-      { label: 'Read notes', href: '#about', variant: 'secondary' }
+      { label: 'GitHub', href: 'https://github.com/Omar1Ramadan', external: true, variant: 'primary' },
+      {
+        label: 'LinkedIn',
+        href: 'https://www.linkedin.com/in/omarramadanb91b298/',
+        external: true,
+        variant: 'secondary'
+      },
+      { label: 'Resume', href: '/OmarRamadan_Resume.pdf', variant: 'secondary' }
     ],
     stats: [
-      { label: 'Featured projects', value: '3' },
-      { label: 'Primary stack', value: 'Svelte / TS' },
-      { label: 'Portfolio mode', value: 'Editorial' }
+      { label: 'Portfolio projects', value: '4' },
+      { label: 'Experience roles', value: '5' },
+      { label: 'Public repos synced', value: '0' }
     ]
   },
   projects: [
     {
-      slug: 'portfolio-redesign',
-      kicker: 'Featured rebuild',
-      title: 'Portfolio Redesign',
-      status: 'In progress',
-      year: '2026',
-      summary: 'A full reset from an over-engineered concept into a content-first portfolio that can grow with real work.',
+      slug: 'fishy-dark-vessel-monitoring',
+      kicker: 'Featured project',
+      title: 'FISHY Dark Vessel Monitoring Workspace',
+      status: 'Built',
+      year: '2025',
+      summary:
+        'A geospatial monitoring workspace for investigating fishing activity, AIS gaps, SAR detections, and vessel movement near EEZ boundaries.',
       impact:
-        'Replaced brittle interaction depth with a maintainable system that highlights projects, skills, and proof without hiding them behind spectacle.',
-      stack: ['SvelteKit', 'TypeScript', 'Responsive UI', 'Content modeling'],
+        'Turned raw maritime data into an analyst workflow that moves from regional scanning to vessel-level investigation and blackout-period path prediction.',
+      stack: ['Next.js', 'TypeScript', 'Mapbox GL JS', 'FastAPI', 'Python', 'LSTM'],
       details:
-        'The current build shifts the portfolio away from forced 3D navigation into a single-page editorial experience. The content model is typed, reusable, and intentionally simple to update as new work ships.',
+        'FISHY combines a Next.js geospatial dashboard with Python-backed prediction services to help analysts review suspicious vessel behavior. The system integrates Global Fishing Watch data, EEZ geometry, vessel metadata, SAR detections, and path prediction into one investigation surface.',
       highlights: [
-        'Moved the homepage to a typed content-driven architecture',
-        'Designed to look complete even with a small set of real projects',
-        'Optimized for readability on both desktop and mobile'
+        'Integrated Global Fishing Watch APIs, EEZ geometry, vessel metadata, and SAR overlays through custom API routes',
+        'Built an LSTM-based FastAPI prediction service for estimating vessel movement during AIS blackout periods',
+        'Added a dead-reckoning fallback so the monitoring flow keeps working when the ML service is unavailable'
       ],
-      links: [{ label: 'This page', href: '#top', variant: 'inline' }],
-      accent: '#b46034',
-      accentSoft: '#ead1bf'
+      links: [{ label: 'GitHub repo', href: 'https://github.com/Omar1Ramadan/fishy', external: true, variant: 'inline' }],
+      accent: '#1d7f76',
+      accentSoft: '#c9ece8'
     },
     {
-      slug: 'library-prototype',
-      kicker: 'Prototype archive',
-      title: 'Interactive Library Prototype',
-      status: 'Archived concept',
-      year: '2026',
-      summary: 'A Three.js experiment that explored walls, shelves, and projects as a navigable spatial library.',
+      slug: 'datacarellc-health-platform',
+      kicker: 'Client-facing system',
+      title: 'DataCareLLC Offline-First Healthcare Platform',
+      status: 'Built',
+      year: '2025',
+      summary:
+        'An offline-first healthcare platform for mobile medical teams operating in low-connectivity environments.',
       impact:
-        'Useful as a prototype because it exposed the cost of high-friction interaction and made the redesign direction obvious.',
-      stack: ['Three.js', 'Svelte', 'GSAP', 'Interaction design'],
+        'Enabled deferred sync, field-ready data collection, and cloud-backed analytics for clinics working without reliable internet access.',
+      stack: ['Java', 'Spring Boot', 'H2', 'YugabyteDB', 'React', 'GCP'],
       details:
-        'The prototype used a hexagonal room, click targets, camera choreography, and staged navigation. It had visual novelty, but the portfolio value was buried under too many steps and too little payoff.',
+        'This project combined an offline-first Java backend, queue-based synchronization, and a multi-role frontend to support healthcare workflows in remote regions. I also helped deploy the backend and database stack on GCP and built analytics workflows for reporting.',
       highlights: [
-        'Built wall, shelf, and project state transitions',
-        'Tested camera motion and raycast-based selection',
-        'Converted failed complexity into a stronger product decision'
+        'Built an offline-first sync pipeline between isolated H2 nodes and cloud-hosted YugabyteDB',
+        'Developed multi-role frontend flows for patient intake, diagnosis, clinic administration, and accessibility support',
+        'Created healthcare analytics dashboards with Python, NiceGUI, Plotly, and downloadable reports'
       ],
-      links: [{ label: 'Case note', href: '#proof', variant: 'inline' }],
-      accent: '#255765',
-      accentSoft: '#c8e0e6'
+      links: [
+        { label: 'GitHub repo', href: 'https://github.com/Omar1Ramadan/DataCareLLC', external: true, variant: 'inline' }
+      ],
+      accent: '#b2682f',
+      accentSoft: '#f2d6bd'
     },
     {
-      slug: 'ui-systems-lab',
-      kicker: 'Ongoing studies',
-      title: 'UI Systems Lab',
-      status: 'Ongoing',
-      year: '2026',
-      summary: 'A working bucket for layout studies, interaction patterns, and reusable frontend decisions.',
+      slug: 'mario-kart-rl',
+      kicker: 'ML systems project',
+      title: 'Mario Kart Reinforcement Learning Racing Agent',
+      status: 'Research build',
+      year: '2025',
+      summary:
+        'An emulator-based reinforcement learning environment for training and evaluating autonomous racing agents.',
       impact:
-        'Acts as a practical proving ground for component discipline, visual systems, and interface choices before they become production-facing.',
-      stack: ['TypeScript', 'Design systems', 'Motion', 'Accessibility'],
+        'Produced a reproducible RL pipeline for comparing PPO and DQN-family agents under the same environment, reward design, and checkpoint logic.',
+      stack: ['Python', 'Stable-Retro', 'PPO', 'Dueling DQN', 'Docker', 'TensorBoard'],
       details:
-        'Rather than padding the portfolio with weak filler projects, this space represents the experiments and smaller builds that sharpen implementation judgment. It supports stronger polished work later without forcing fake case studies now.',
+        'I built a custom Mario Kart training environment with discrete actions, hybrid observations, reward shaping, termination logic, checkpoint tracking, and evaluation diagnostics. The project was designed to make long-running PPO and DQN experiments repeatable and easier to analyze.',
       highlights: [
-        'Keeps exploratory work separate from stronger featured builds',
-        'Focuses on repeatable UI decisions instead of one-off flourishes',
-        'Supports future expansion without redesigning the homepage'
+        'Engineered a Gym-style environment with 7 discrete actions and 30 checkpoint targets',
+        'Ran PPO and DQN-family training experiments up to 3,000,000 environment steps',
+        'Built Dockerized tooling, TensorBoard logging, checkpoint save-resume, and evaluation scripts'
       ],
-      links: [],
-      accent: '#85712f',
-      accentSoft: '#ebe2b9'
+      links: [
+        { label: 'GitHub repo', href: 'https://github.com/Omar1Ramadan/mario-kart-rl', external: true, variant: 'inline' }
+      ],
+      accent: '#5f63d3',
+      accentSoft: '#d8dafb'
+    },
+    {
+      slug: 'folium-collaborative-notes',
+      kicker: 'Systems + web project',
+      title: 'Folium Collaborative Note System',
+      status: 'Built',
+      year: '2025',
+      summary:
+        'A collaborative note-taking system with a Svelte frontend and a multithreaded C++ backend designed for concurrency-safe shared editing.',
+      impact:
+        'Combined real-time collaboration goals with backend concurrency discipline, JWT-based access control, and a distributed deployment setup.',
+      stack: ['Svelte', 'C++', 'PostgreSQL', 'JWT', 'AWS', 'Vercel'],
+      details:
+        'Folium uses a globally hosted frontend and a C++ backend with modular layers, dispatcher-thread pool architecture, and concurrency-safe note processing. The system was built to support multiple simultaneous users while keeping the architecture extensible.',
+      highlights: [
+        'Built a multithreaded C++ server with mutex-based synchronization and ACID-safe note processing',
+        'Implemented a dispatcher-thread pool design with modular backend layers and JWT session handling',
+        'Deployed the frontend and backend across Vercel and AWS for public access and load testing'
+      ],
+      links: [{ label: 'GitHub repo', href: 'https://github.com/Omar1Ramadan/Folium', external: true, variant: 'inline' }],
+      accent: '#7d8d2f',
+      accentSoft: '#e4ebbc'
+    }
+  ],
+  experience: [
+    {
+      role: 'Computer Vision Jr. Lead',
+      organization: 'Western Aerospace Design Team',
+      location: 'London, ON',
+      period: 'September 2024 - Present',
+      summary:
+        'Leading autonomy-facing vision and flight testing work for an advanced-class tricopter, with emphasis on perception reliability, mission workflows, and bench validation.',
+      highlights: [
+        'Developed a Python and OpenCV vision pipeline that improved ArUco marker and landing-zone detection accuracy by 30 percent during autonomous flight testing',
+        'Integrated Raspberry Pi, PX4, MAVLink, and a MicroAir405v2 controller into a reusable autonomy test kit for bench validation',
+        'Validated waypoint tracking in Gazebo before confirming PX4-guided execution on the physical tricopter'
+      ],
+      stack: ['Python', 'OpenCV', 'PX4', 'MAVLink', 'Gazebo', 'Raspberry Pi']
+    },
+    {
+      role: 'Battery Systems Research Assistant',
+      organization: 'Western Formula Racing / Western University Research',
+      location: 'London, ON',
+      period: '2024 - Present',
+      summary:
+        'Built ML-driven thermal analysis and battery telemetry tooling for EV systems research, combining predictive models with embedded and CAN tooling.',
+      highlights: [
+        'Developed an EV thermal risk analyzer that achieved 0.9995 test AUC, 0.9688 F1, and 1.307 C MAE for overheating detection and forecasting',
+        'Designed predictive derating heuristics that converted model outputs into actionable torque-reduction recommendations',
+        'Built CAN validation and telemetry workflows using CANdapter, python-can, pyCandapter, and ESP32-based support hardware'
+      ],
+      stack: ['Python', 'scikit-learn', 'STM32', 'CAN bus', 'CubeIDE', 'ESP32']
+    },
+    {
+      role: 'Software Engineer',
+      organization: 'RBC Initiative Project / DataCareLLC',
+      location: 'Remote',
+      period: '2025',
+      summary:
+        'Worked on an offline-first healthcare platform for low-connectivity field use, contributing across backend, frontend, deployment, and analytics.',
+      highlights: [
+        'Built Java and H2-based offline workflows with deferred synchronization into a cloud YugabyteDB cluster',
+        'Developed routed React workflows for patient intake, diagnosis, clinic administration, and role-based access',
+        'Supported GCP deployment and analytics reporting for a real client-facing healthcare system'
+      ],
+      stack: ['Java', 'Spring Boot', 'React', 'YugabyteDB', 'GCP', 'Python']
+    },
+    {
+      role: 'AI Policy Lead',
+      organization: 'Minister Filomena Tassi Consistency Youth Council',
+      location: 'Hamilton, ON',
+      period: 'August 2020 - Present',
+      summary:
+        'Prepared policy recommendations on AI in education and workplace use, balancing innovation opportunities with ethics and safety concerns.',
+      highlights: [
+        'Prepared a policy proposal on AI in education for Minister Filomena Tassi',
+        'Recommended ethical and safe AI use to inform municipal thinking around a 4.2 billion federal budget allocation',
+        'Organized AI mentorships and workshops with schools and tech sponsors to improve youth digital literacy'
+      ],
+      stack: ['Policy research', 'Technical communication', 'Public speaking', 'Program coordination']
+    },
+    {
+      role: 'Short-Term Rental Operations Manager',
+      organization: 'Independent Hospitality Business',
+      location: 'Remote / New Cairo, Egypt',
+      period: '2023 - Present',
+      summary:
+        'Managing day-to-day operations, guest support, pricing strategy, and multi-platform listings for a small hospitality business.',
+      highlights: [
+        'Supported 300 to 400 bookings across Airbnb, Booking.com, Vrbo, and Expedia while maintaining a 4.94 Airbnb rating',
+        'Coordinated guest support across the full stay lifecycle with approximately one-hour response times',
+        'Expanded the business from Airbnb to four platforms to diversify acquisition and repeat bookings'
+      ],
+      stack: ['Operations', 'Customer support', 'Pricing strategy', 'Process management']
     }
   ],
   skills: [
     {
-      title: 'Frontend systems',
-      summary: 'Interfaces with clean hierarchy, scalable structure, and strong responsiveness.',
-      items: ['SvelteKit', 'TypeScript', 'Component architecture', 'State modeling', 'Responsive layout']
+      title: 'AI, data, and machine learning',
+      summary: 'Applied ML work across forecasting, recommender systems, RL, computer vision, and data engineering.',
+      items: ['Python', 'scikit-learn', 'TensorFlow/Keras', 'PyTorch', 'Pandas', 'LSTM', 'PPO / DQN']
     },
     {
-      title: 'Interaction and polish',
-      summary: 'Motion and interface behavior used to clarify, not distract.',
-      items: ['Micro-interactions', 'GSAP', 'Accessibility basics', 'Keyboard flows', 'Reduced-motion support']
+      title: 'Full-stack product engineering',
+      summary: 'Shipping user-facing systems across web apps, APIs, databases, auth, and deployment workflows.',
+      items: ['TypeScript', 'React', 'Next.js', 'Svelte', 'FastAPI', 'Spring Boot', 'PostgreSQL / MySQL']
     },
     {
-      title: 'Product framing',
-      summary: 'Able to cut complexity when the original concept stops serving the user.',
-      items: ['Information architecture', 'Content strategy', 'Rapid prototyping', 'UI critique', 'Iterative redesign']
+      title: 'Embedded, autonomy, and systems',
+      summary: 'Building software that interacts with hardware, telemetry, robotics workflows, and constrained environments.',
+      items: ['OpenCV', 'PX4', 'MAVLink', 'Gazebo', 'STM32', 'CAN bus', 'Raspberry Pi']
     }
   ],
   achievements: [
     {
-      title: 'Turned a failed concept into a stronger product direction',
-      context: 'Portfolio rebuild',
-      year: '2026',
-      note: 'Used the limitations of the 3D prototype to define a clearer, more maintainable portfolio system.'
+      title: 'Won 1st place for Best Overall Hackathon',
+      context: 'DeepEnd / GDSC Hackathon',
+      year: '2025',
+      note: 'Built a personalized project recommendation platform using Next.js, Firebase, TensorFlow, and the OpenAI API.'
     },
     {
-      title: 'Built the homepage around typed content instead of hard-coded layout assumptions',
-      context: 'SvelteKit architecture',
-      year: '2026',
-      note: 'New work can be added by editing data rather than rewriting presentation logic.'
+      title: 'Improved autonomous landing-zone detection accuracy by 30 percent',
+      context: 'Western Aerospace Design Team',
+      year: '2025',
+      note: 'Shipped computer vision and flight testing workflows that materially improved autonomous tricopter reliability.'
     },
     {
-      title: 'Designed for a small but real body of work',
-      context: 'Portfolio strategy',
-      year: '2026',
-      note: 'The site stays credible with a curated few projects and proof sections instead of artificial filler.'
+      title: 'Placed in the top 10 out of 50 plus teams',
+      context: 'Western Engineering Competition',
+      year: '2024',
+      note: 'Led a team building a remote-controlled vehicle with a servo-driven claw for disaster-terrain navigation.'
     }
   ],
   about: {
-    title: 'Shelf notes',
+    title: 'Let’s build something useful.',
     summary:
-      'I care about interfaces that make sense quickly. The goal is not to make every idea look flashy; the goal is to make the important parts feel obvious, intentional, and easy to trust.',
+      'I care most about technically serious work that still has a clear user or operator payoff. The strongest projects for me are the ones where systems, data, and interface design all need to line up.',
     focus:
-      'Right now I am focused on sharpening frontend execution, interaction judgment, and the ability to simplify a messy concept into something people can actually use.',
+      'I am currently looking for opportunities in software engineering, ML engineering, data-heavy product work, and systems roles that value ownership across the stack.',
     contactNote:
-      'Add your real GitHub, LinkedIn, and email in this data file when you are ready. The layout is already wired to support them cleanly.',
-    links: [
-      { label: 'Jump to top', href: '#top', variant: 'secondary' },
-      { label: 'View projects', href: '#projects', variant: 'secondary' }
-    ]
+      'The portfolio is now driven by resume-backed project and experience data, with recent public GitHub repositories synced in as live project cards.',
+    links: [{ label: 'Email', href: 'mailto:oramadan2004@gmail.com', external: true, variant: 'secondary' }]
   }
 };
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function formatMonthYear(value: string | null) {
+  if (!value) return 'recently';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'recently';
+
+  return new Intl.DateTimeFormat('en-CA', {
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'America/Toronto'
+  }).format(date);
+}
+
+function buildRepoStack(repo: GitHubRepoSummary) {
+  const values = [repo.language, ...repo.topics]
+    .filter((item): item is string => !!item)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return values.length ? values.slice(0, 6) : ['GitHub', 'Source code'];
+}
+
+function mapGitHubRepoToProject(repo: GitHubRepoSummary, index: number): Project {
+  const accentPair = accentPairs[index % accentPairs.length];
+  const lastActivity = formatMonthYear(repo.pushedAt ?? repo.updatedAt);
+  const stack = buildRepoStack(repo);
+  const details =
+    repo.description?.trim() ||
+    `A live project card generated from the public ${repo.fullName} repository. This entry is synced from GitHub so the portfolio can reflect active work without needing a manual site edit every time a new repo appears.`;
+
+  const links: LinkItem[] = [{ label: 'GitHub repo', href: repo.htmlUrl, external: true, variant: 'inline' }];
+  if (repo.homepage) {
+    links.push({ label: 'Live demo', href: repo.homepage, external: true, variant: 'inline' });
+  }
+
+  return {
+    slug: `github-${slugify(repo.name)}`,
+    kicker: 'Live GitHub sync',
+    title: repo.name.replace(/[-_]/g, ' '),
+    status: 'Live on GitHub',
+    year: new Date(repo.updatedAt).getUTCFullYear().toString(),
+    summary: repo.description?.trim() || 'Recent public repository synced directly from GitHub.',
+    impact: `Most recent public activity landed in ${lastActivity}, keeping the portfolio aligned with current work instead of a static snapshot.`,
+    stack,
+    details,
+    highlights: [
+      `Synced from ${repo.fullName}`,
+      `Last activity: ${lastActivity}`,
+      repo.stars > 0 ? `${repo.stars} GitHub star${repo.stars === 1 ? '' : 's'}` : 'Public repository'
+    ],
+    links,
+    accent: accentPair.accent,
+    accentSoft: accentPair.accentSoft
+  };
+}
+
+export function buildPortfolioContent(githubRepos: GitHubRepoSummary[] = []): PortfolioContent {
+  const liveRepos = githubRepos
+    .filter((repo) => repo.visibility === 'public' && !repo.archived && !repo.fork)
+    .filter((repo) => !curatedRepoKeys.has(repo.fullName.toLowerCase()))
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.pushedAt ?? left.updatedAt);
+      const rightTime = Date.parse(right.pushedAt ?? right.updatedAt);
+      return rightTime - leftTime;
+    });
+
+  const liveProjects = liveRepos.slice(0, 4).map(mapGitHubRepoToProject);
+  const projects = [...portfolioContent.projects, ...liveProjects];
+
+  return {
+    ...portfolioContent,
+    hero: {
+      ...portfolioContent.hero,
+      stats: [
+        { label: 'Portfolio projects', value: String(projects.length) },
+        { label: 'Experience roles', value: String(portfolioContent.experience.length) },
+        { label: 'Public repos synced', value: String(liveRepos.length) }
+      ]
+    },
+    projects
+  };
+}
