@@ -2,4 +2,9 @@
   import '../app.css';
 </script>
 
+<svelte:head>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
+</svelte:head>
+
 <slot />

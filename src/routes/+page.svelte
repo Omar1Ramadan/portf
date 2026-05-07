@@ -137,12 +137,9 @@
   ];
 
   const taskbarApps = [
-    { id: 'start', label: 'Start', kind: 'windows' },
     { id: 'browser', label: 'Browser', kind: 'chrome' },
     { id: 'files', label: 'Files', kind: 'folder' },
-    { id: 'music', label: 'Music', kind: 'music' },
     { id: 'notepad', label: 'Notepad', kind: 'notepad' },
-    { id: 'chat', label: 'Chat', kind: 'chat' },
     { id: 'terminal', label: 'Terminal', kind: 'terminal' }
   ] as const;
   const notepadStorageKey = 'portfolio-notes-v2';
@@ -168,7 +165,7 @@ Start writing here.
   const linkedinUrl = 'https://www.linkedin.com/in/omarramadanb91b298/';
   const emailUrl = 'mailto:oramadan2004@gmail.com';
   const resumePdfUrl = '/OmarRamadan_Resume.pdf';
-  const wallpaperUrl = '/Spider-Man3Header.webp';
+  const wallpaperUrl = '/pexels-pixabay-459225.jpg';
   const gameLogoBase = 'https://commons.wikimedia.org/wiki/Special:Redirect/file/';
   const desktopShortcuts: DesktopShortcut[] = [
     {
@@ -993,13 +990,13 @@ Start writing here.
           children: [
             {
               id: 'wallpaper',
-              path: 'photos/spiderman-3-poster',
-              label: 'spiderman_3_wallpaper.jpg',
+              path: 'photos/mountain-lake-wallpaper',
+              label: 'pexels-pixabay-459225.jpg',
               kind: 'document',
-              description: 'The rainy black-suit Spider-Man poster setting the desktop mood.',
+              description: 'A wide mountain lake scene with bright light, reflections, and a quieter desktop mood.',
               badge: 'Wallpaper',
-              meta: ['Spider-Man 3', 'Favorite movie'],
-              tags: ['Wallpaper', 'Spider-Man']
+              meta: ['Landscape', 'Lake view'],
+              tags: ['Wallpaper', 'Nature']
             },
             {
               id: 'games-folder-note',
@@ -2824,6 +2821,34 @@ Start writing here.
           : `left:${notepadWindow.x}px;top:${notepadWindow.y}px;width:${notepadWindow.width}px;height:${notepadWindow.height}px;z-index:${notepadZIndex};`
       }
     >
+      <header class="window-bar notepad-bar" on:mousedown={(event) => startMove('notepad', event)}>
+        <div class="notepad-title">
+          <span class="tab-icon icon-note"></span>
+          <span>Notepad</span>
+        </div>
+
+        <div class="window-controls notepad-controls">
+          <button
+            type="button"
+            class="control-minimize"
+            aria-label="Minimize notepad"
+            on:click={() => toggleMinimize('notepad')}
+          ></button>
+          <button
+            type="button"
+            class="control-maximize"
+            aria-label="Maximize notepad"
+            on:click={() => toggleMaximize('notepad')}
+          ></button>
+          <button
+            type="button"
+            class="control-close"
+            aria-label="Close notepad"
+            on:click={closeNotepad}
+          ></button>
+        </div>
+      </header>
+
       <div class="notepad-surface">
         <section class="notepad-main">
           <div class="notepad-toolbar">
@@ -2928,36 +2953,6 @@ Start writing here.
           </div>
         </aside>
       </div>
-
-      <header
-        class="window-bar notepad-bar"
-        style="background:#2c2b2b;background-image:none;"
-        on:mousedown={(event) => startMove('notepad', event)}
-      >
-        <span class="notepad-chrome-fill" aria-hidden="true"></span>
-        <div class="notepad-title-spacer" aria-hidden="true"></div>
-
-        <div class="window-controls notepad-controls">
-          <button
-            type="button"
-            class="control-minimize"
-            aria-label="Minimize notepad"
-            on:click={() => toggleMinimize('notepad')}
-          ></button>
-          <button
-            type="button"
-            class="control-maximize"
-            aria-label="Maximize notepad"
-            on:click={() => toggleMaximize('notepad')}
-          ></button>
-          <button
-            type="button"
-            class="control-close"
-            aria-label="Close notepad"
-            on:click={closeNotepad}
-          ></button>
-        </div>
-      </header>
 
       {#if !notepadWindow.maximized}
         <button type="button" class="resize-handle left" aria-label="Resize notepad left" on:mousedown={(event) => startResize('notepad', 'left', event)}></button>
@@ -3352,7 +3347,8 @@ Start writing here.
   .notepad-window {
     position: fixed;
     z-index: 28;
-    display: block;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     background: #eadfc8;
     border: 1px solid rgba(42, 35, 25, 0.7);
     border-radius: 10px;
@@ -3383,13 +3379,7 @@ Start writing here.
   }
 
   .notepad-bar {
-    position: absolute;
-    inset: 0 0 auto 0;
-    z-index: 5;
-    height: 50px;
     min-height: 50px;
-    display: flex;
-    justify-content: space-between;
     align-items: stretch;
     padding: 0 0.6rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -3397,34 +3387,16 @@ Start writing here.
     box-shadow: none;
   }
 
-  .notepad-bar::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background: #2c2b2b;
-  }
-
-  .notepad-chrome-fill {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    display: block;
-    background: #2c2b2b;
-  }
-
-  .notepad-title-spacer {
-    position: relative;
-    z-index: 1;
-    display: block;
+  .notepad-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
     min-width: 190px;
-    background: transparent !important;
-    background-image: none !important;
-  }
-
-  .notepad-controls {
-    position: relative;
-    z-index: 1;
+    padding: 0 1rem;
+    color: #f2f2f2;
+    background: #353334;
+    border-radius: 10px 10px 0 0;
+    font: 700 0.95rem/1 'Space Grotesk', sans-serif;
   }
 
   .icon-note {
@@ -3445,8 +3417,6 @@ Start writing here.
 
   .notepad-surface {
     position: relative;
-    height: 100%;
-    padding-top: 50px;
     min-height: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -5876,9 +5846,9 @@ Start writing here.
     box-shadow: none;
   }
 
-  .notepad-window .notepad-title-spacer {
-    background: transparent !important;
-    background-image: none !important;
+  .notepad-window .notepad-title {
+    color: #f2f2f2;
+    background: #353334;
   }
 
   .notepad-window .notepad-controls .control-minimize::before {
