@@ -98,7 +98,8 @@ const curatedRepoKeys = new Set([
   'omar1ramadan/fishy',
   'omar1ramadan/datacarellc',
   'omar1ramadan/mario-kart-rl',
-  'omar1ramadan/folium'
+  'omar1ramadan/folium',
+  'omar1ramadan/ev-thermal-risk-analyzer'
 ]);
 
 export const portfolioContent: PortfolioContent = {
@@ -128,6 +129,30 @@ export const portfolioContent: PortfolioContent = {
   },
   projects: [
     {
+      slug: 'battery-thermal-risk-analyzer',
+      kicker: 'Applied ML system',
+      title: 'Battery Thermal Risk Analyzer',
+      status: 'Research build',
+      year: '2025',
+      summary:
+        'An EV telemetry analysis pipeline for overheating detection, short-horizon temperature forecasting, and actionable derating guidance.',
+      impact:
+        'Turned raw inverter telemetry into a model-backed engineering tool with strong classification and forecasting performance tied to concrete control recommendations.',
+      stack: ['Python', 'scikit-learn', 'Telemetry Processing', 'Gradient Boosting', 'Pandas', 'EV Systems'],
+      details:
+        'This project processed inverter telemetry into 1 Hz datasets, trained Gradient Boosting models for overheating detection and temperature forecasting, and translated the outputs into derating heuristics engineers could act on quickly.',
+      highlights: [
+        'Achieved 0.9995 test AUC, 0.9688 F1, and 1.307°C MAE on overheating detection and forecasting tasks',
+        'Converted model outputs into 20 to 30 percent and 40 to 50 percent derating recommendations',
+        'Built the full pipeline from raw telemetry cleaning and aggregation to model training and decision outputs'
+      ],
+      links: [
+        { label: 'GitHub repo', href: 'https://github.com/Omar1Ramadan/ev-thermal-risk-analyzer', external: true, variant: 'inline' }
+      ],
+      accent: '#b2682f',
+      accentSoft: '#f2d6bd'
+    },
+    {
       slug: 'fishy-dark-vessel-monitoring',
       kicker: 'Featured project',
       title: 'FISHY Dark Vessel Monitoring Workspace',
@@ -145,33 +170,12 @@ export const portfolioContent: PortfolioContent = {
         'Built an LSTM-based FastAPI prediction service for estimating vessel movement during AIS blackout periods',
         'Added a dead-reckoning fallback so the monitoring flow keeps working when the ML service is unavailable'
       ],
-      links: [{ label: 'GitHub repo', href: 'https://github.com/Omar1Ramadan/fishy', external: true, variant: 'inline' }],
+      links: [
+        { label: 'Devpost', href: 'https://devpost.com/software/fishy', external: true, variant: 'inline' },
+        { label: 'GitHub repo', href: 'https://github.com/Omar1Ramadan/fishy', external: true, variant: 'inline' }
+      ],
       accent: '#1d7f76',
       accentSoft: '#c9ece8'
-    },
-    {
-      slug: 'datacarellc-health-platform',
-      kicker: 'Client-facing system',
-      title: 'DataCareLLC Offline-First Healthcare Platform',
-      status: 'Built',
-      year: '2025',
-      summary:
-        'An offline-first healthcare platform for mobile medical teams operating in low-connectivity environments.',
-      impact:
-        'Enabled deferred sync, field-ready data collection, and cloud-backed analytics for clinics working without reliable internet access.',
-      stack: ['Java', 'Spring Boot', 'H2', 'YugabyteDB', 'React', 'GCP'],
-      details:
-        'This project combined an offline-first Java backend, queue-based synchronization, and a multi-role frontend to support healthcare workflows in remote regions. I also helped deploy the backend and database stack on GCP and built analytics workflows for reporting.',
-      highlights: [
-        'Built an offline-first sync pipeline between isolated H2 nodes and cloud-hosted YugabyteDB',
-        'Developed multi-role frontend flows for patient intake, diagnosis, clinic administration, and accessibility support',
-        'Created healthcare analytics dashboards with Python, NiceGUI, Plotly, and downloadable reports'
-      ],
-      links: [
-        { label: 'GitHub repo', href: 'https://github.com/Omar1Ramadan/DataCareLLC', external: true, variant: 'inline' }
-      ],
-      accent: '#b2682f',
-      accentSoft: '#f2d6bd'
     },
     {
       slug: 'mario-kart-rl',
@@ -198,24 +202,24 @@ export const portfolioContent: PortfolioContent = {
       accentSoft: '#d8dafb'
     },
     {
-      slug: 'folium-collaborative-notes',
-      kicker: 'Systems + web project',
-      title: 'Folium Collaborative Note System',
-      status: 'Built',
+      slug: 'deepend',
+      kicker: 'Hackathon-winning AI product',
+      title: 'DeepEnd',
+      status: 'Hackathon winner',
       year: '2025',
       summary:
-        'A collaborative note-taking system with a Svelte frontend and a multithreaded C++ backend designed for concurrency-safe shared editing.',
+        'An AI project recommendation platform that matched aspiring developers to tailored build ideas using skill classification and generated recommendations.',
       impact:
-        'Combined real-time collaboration goals with backend concurrency discipline, JWT-based access control, and a distributed deployment setup.',
-      stack: ['Svelte', 'C++', 'PostgreSQL', 'JWT', 'AWS', 'Vercel'],
+        'Lowered the barrier to entry for new developers and won 1st place out of 30 plus teams by turning onboarding data into personalized project suggestions.',
+      stack: ['Next.js', 'Firebase', 'TensorFlow', 'OpenAI API', 'Vercel'],
       details:
-        'Folium uses a globally hosted frontend and a C++ backend with modular layers, dispatcher-thread pool architecture, and concurrency-safe note processing. The system was built to support multiple simultaneous users while keeping the architecture extensible.',
+        'DeepEnd combined a TensorFlow Siamese model for skill classification with the OpenAI API to generate project recommendations tailored to user interests, skill level, and background. The product was built as a full-stack recommendation experience with authentication and hosted delivery.',
       highlights: [
-        'Built a multithreaded C++ server with mutex-based synchronization and ACID-safe note processing',
-        'Implemented a dispatcher-thread pool design with modular backend layers and JWT session handling',
-        'Deployed the frontend and backend across Vercel and AWS for public access and load testing'
+        'Served more than 200 users with personalized project recommendations',
+        'Won 1st place for Best Overall Hackathon out of 30 plus teams',
+        'Integrated TensorFlow-based skill matching with OpenAI-generated project ideas in a full-stack product flow'
       ],
-      links: [{ label: 'GitHub repo', href: 'https://github.com/Omar1Ramadan/Folium', external: true, variant: 'inline' }],
+      links: [{ label: 'Devpost', href: 'https://devpost.com/software/deepend#updates', external: true, variant: 'inline' }],
       accent: '#7d8d2f',
       accentSoft: '#e4ebbc'
     }
@@ -330,7 +334,7 @@ export const portfolioContent: PortfolioContent = {
     }
   ],
   about: {
-    title: 'Let’s build something useful.',
+    title: "Let's build something useful.",
     summary:
       'I care most about technically serious work that still has a clear user or operator payoff. The strongest projects for me are the ones where systems, data, and interface design all need to line up.',
     focus:

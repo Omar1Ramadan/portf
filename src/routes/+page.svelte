@@ -37,9 +37,28 @@
     snippet: string;
   };
 
+  type ExplorerAction =
+    | { kind: 'route'; target: string; label: string }
+    | { kind: 'external'; target: string; label: string; targetMode?: '_blank' | '_self' };
+
+  type ExplorerItem = {
+    id: string;
+    path: string;
+    label: string;
+    kind: 'folder' | 'project' | 'document' | 'note' | 'contact';
+    description: string;
+    badge?: string;
+    meta?: string[];
+    tags?: string[];
+    action?: ExplorerAction;
+    project?: Project;
+    children?: ExplorerItem[];
+  };
+
   type BrowserPage =
     | { type: 'google-home'; title: string; url: string }
     | { type: 'search-results'; title: string; url: string; query: string; results: SearchResult[] }
+    | { type: 'portfolio-files'; title: string; url: string; itemPath: string }
     | { type: 'portfolio-home'; title: string; url: string }
     | { type: 'portfolio-projects'; title: string; url: string }
     | { type: 'portfolio-experience'; title: string; url: string }
@@ -73,9 +92,17 @@
   let skills = portfolio.skills;
   let achievements = portfolio.achievements;
   let about = portfolio.about;
+  let explorerRoot: ExplorerItem;
+  let explorerSidebarItems: ExplorerItem[] = [];
+  let explorerFeaturedItems: ExplorerItem[] = [];
+  let filesOpen = false;
+  let selectedExplorerPath = 'root';
 
   $: portfolio = data.portfolio;
   $: ({ hero, projects, experience, skills, achievements, about } = portfolio);
+  $: explorerRoot = buildExplorerRoot();
+  $: explorerSidebarItems = explorerRoot.children ?? [];
+  $: explorerFeaturedItems = explorerSidebarItems.flatMap((section) => section.children ?? []).slice(0, 6);
 
   const supportedCommands = [
     '/help',
@@ -146,26 +173,37 @@
     maximized: false,
     minimized: false
   };
+  let filesWindow: WindowBox = {
+    x: 164,
+    y: 72,
+    width: 860,
+    height: 560,
+    maximized: false,
+    minimized: false
+  };
   let browserRestoreBox: WindowBox | null = null;
   let terminalRestoreBox: WindowBox | null = null;
+  let filesRestoreBox: WindowBox | null = null;
   let activeDrag:
     | {
         kind: 'move' | 'resize';
-        window: 'browser' | 'terminal';
+        window: 'browser' | 'terminal' | 'files';
         edge?: 'left' | 'right' | 'bottom' | 'bottom-right' | 'bottom-left';
         startX: number;
         startY: number;
         startBox: WindowBox;
       }
     | null = null;
-  let windowOrder: Array<'browser' | 'terminal'> = ['browser', 'terminal'];
+  let windowOrder: Array<'browser' | 'files' | 'terminal'> = ['browser', 'files', 'terminal'];
 
   $: activeBrowserTab = browserTabs.find((tab) => tab.id === activeBrowserTabId);
   $: activeBrowserPage = activeBrowserTab ? activeBrowserTab.history[activeBrowserTab.historyIndex] : undefined;
   $: canGoBack = !!activeBrowserTab && activeBrowserTab.historyIndex > 0;
   $: canGoForward = !!activeBrowserTab && activeBrowserTab.historyIndex < activeBrowserTab.history.length - 1;
   $: browserZIndex = windowOrder.indexOf('browser') === -1 ? 26 : 26 + windowOrder.indexOf('browser');
+  $: filesZIndex = windowOrder.indexOf('files') === -1 ? 26 : 26 + windowOrder.indexOf('files');
   $: terminalZIndex = windowOrder.indexOf('terminal') === -1 ? 26 : 26 + windowOrder.indexOf('terminal');
+  $: explorerSelection = getExplorerSelectionFromPath(selectedExplorerPath);
 
   onMount(() => {
     resetHistory();
@@ -202,6 +240,17 @@
     terminalOpen = false;
   }
 
+  function openFiles(path = selectedExplorerPath) {
+    selectedExplorerPath = path;
+    filesOpen = true;
+    fitWindowsToViewport();
+    focusWindow('files');
+  }
+
+  function closeFiles() {
+    filesOpen = false;
+  }
+
   function openBrowser() {
     browserOpen = true;
     fitWindowsToViewport();
@@ -227,8 +276,12 @@
     };
   }
 
-  function syncBrowserAddress() {
-    const page = activeBrowserPage;
+  function getCurrentBrowserPage(tab: BrowserTab | undefined = activeBrowserTab) {
+    if (!tab) return undefined;
+    return tab.history[tab.historyIndex];
+  }
+
+  function syncBrowserAddress(page: BrowserPage | undefined = getCurrentBrowserPage()) {
     browserAddress = page?.url ?? 'google.local';
   }
 
@@ -447,11 +500,15 @@
     tab.historyIndex = tab.history.length - 1;
     tab.label = nextPage.title;
     browserTabs = [...browserTabs];
-    syncBrowserAddress();
+    syncBrowserAddress(nextPage);
   }
 
   function openBrowserPage(input: string) {
     navigateBrowser(input);
+  }
+
+  function openExternalBrowserLink(url: string, target: '_blank' | '_self' = '_blank') {
+    window.open(url, target, target === '_blank' ? 'noopener,noreferrer' : undefined);
   }
 
   function submitBrowserHomeSearch() {
@@ -461,22 +518,254 @@
     browserHomeQuery = '';
   }
 
+  function buildExplorerRoot(): ExplorerItem {
+    const topProjects = projects.slice(0, 4).map((project) => projectToExplorerItem(project, 'featured-work'));
+    const labProjects = projects.slice(4).map((project) => projectToExplorerItem(project, 'playground'));
+    const experienceNotes = experience.map((item, index) => ({
+      id: `experience-${index}`,
+      path: `experience/${slugifyLabel(item.organization)}`,
+      label: item.organization,
+      kind: 'note' as const,
+      description: item.summary,
+      badge: item.period,
+      meta: [item.role, item.location],
+      tags: item.stack.slice(0, 4)
+    }));
+    const skillNotes = skills.map((group) => ({
+      id: `skill-${slugifyLabel(group.title)}`,
+      path: `toolbox/${slugifyLabel(group.title)}`,
+      label: group.title,
+      kind: 'note' as const,
+      description: group.summary,
+      badge: 'Skill group',
+      meta: [`${group.items.length} tools`],
+      tags: group.items.slice(0, 5)
+    }));
+    const archiveNotes = achievements.map((item) => ({
+      id: `achievement-${slugifyLabel(item.title)}`,
+      path: `archive/${slugifyLabel(item.title)}`,
+      label: item.title,
+      kind: 'document' as const,
+      description: item.note,
+      badge: item.year,
+      meta: [item.context],
+      tags: ['Proof', 'Milestone']
+    }));
+
+    return {
+      id: 'root',
+      path: 'root',
+      label: 'Home',
+      kind: 'folder',
+      description: 'Curated portfolio filesystem with projects, context, and proof.',
+      badge: 'Pinned workspace',
+      meta: ['Open with the Files app'],
+      children: [
+        {
+          id: 'featured-work',
+          path: 'featured-work',
+          label: 'Featured Work',
+          kind: 'folder',
+          description: 'The strongest case studies to open first.',
+          badge: `${topProjects.length} pinned`,
+          meta: ['Projects', 'Case studies'],
+          children: topProjects
+        },
+        {
+          id: 'about',
+          path: 'about',
+          label: 'About',
+          kind: 'folder',
+          description: 'Resume, contact routes, and current focus files.',
+          badge: 'Starter folder',
+          meta: ['Identity', 'Links'],
+          children: [
+            {
+              id: 'resume',
+              path: 'about/resume-pdf',
+              label: 'resume.pdf',
+              kind: 'document',
+              description: 'Direct access to the latest resume PDF.',
+              badge: 'Document',
+              meta: ['PDF', 'Career snapshot'],
+              tags: ['Resume', 'PDF'],
+              action: { kind: 'route', target: 'portfolio.local/resume', label: 'Open resume' }
+            },
+            {
+              id: 'now',
+              path: 'about/now-txt',
+              label: 'now.txt',
+              kind: 'note',
+              description: about.focus,
+              badge: 'Live note',
+              meta: [hero.role],
+              tags: ['Current focus', 'Work']
+            },
+            {
+              id: 'contact',
+              path: 'about/contact-card',
+              label: 'contact.card',
+              kind: 'contact',
+              description: about.contactNote,
+              badge: 'Reach out',
+              meta: ['Email', 'GitHub', 'LinkedIn'],
+              tags: ['Contact', 'Links'],
+              action: { kind: 'external', target: emailUrl, label: 'Send email', targetMode: '_self' }
+            }
+          ]
+        },
+        {
+          id: 'experience',
+          path: 'experience',
+          label: 'Experience',
+          kind: 'folder',
+          description: 'Operator context, roles, and domain range.',
+          badge: `${experienceNotes.length} roles`,
+          meta: ['Work history'],
+          children: experienceNotes
+        },
+        {
+          id: 'toolbox',
+          path: 'toolbox',
+          label: 'Toolbox',
+          kind: 'folder',
+          description: 'Engineering stacks grouped by practice area.',
+          badge: `${skillNotes.length} groups`,
+          meta: ['Stack snapshot'],
+          children: skillNotes
+        },
+        {
+          id: 'archive',
+          path: 'archive',
+          label: 'Archive',
+          kind: 'folder',
+          description: 'Proof points, wins, and supporting notes.',
+          badge: `${archiveNotes.length} files`,
+          meta: ['Validation'],
+          children: archiveNotes
+        },
+        {
+          id: 'playground',
+          path: 'playground',
+          label: 'Playground',
+          kind: 'folder',
+          description: 'Extra repos and experiments that still deserve a click.',
+          badge: `${labProjects.length} experiments`,
+          meta: ['Exploration', 'R&D'],
+          children: labProjects
+        }
+      ]
+    };
+  }
+
+  function projectToExplorerItem(project: Project, sectionPath: string): ExplorerItem {
+    return {
+      id: project.slug,
+      path: `${sectionPath}/${project.slug}`,
+      label: `${project.title}.case`,
+      kind: 'project',
+      description: project.summary,
+      badge: project.year,
+      meta: [project.kicker, project.status],
+      tags: project.stack.slice(0, 4),
+      project,
+      action: {
+        kind: 'route',
+        target: `portfolio.local/project/${project.slug}`,
+        label: 'Open case study'
+      }
+    };
+  }
+
+  function slugifyLabel(value: string) {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function findExplorerItem(path: string, node: ExplorerItem = explorerRoot): ExplorerItem | undefined {
+    if (node.path === path) return node;
+    for (const child of node.children ?? []) {
+      const match = findExplorerItem(path, child);
+      if (match) return match;
+    }
+    return undefined;
+  }
+
+  function findExplorerParent(path: string, node: ExplorerItem = explorerRoot, parent?: ExplorerItem): ExplorerItem | undefined {
+    if (node.path === path) return parent;
+    for (const child of node.children ?? []) {
+      const match = findExplorerParent(path, child, node);
+      if (match) return match;
+    }
+    return undefined;
+  }
+
+  function getExplorerSelectionFromPath(path: string) {
+    const item = findExplorerItem(path) ?? explorerRoot;
+    const parent = item.kind === 'folder' ? item : findExplorerParent(item.path) ?? explorerRoot;
+    const siblings = parent.children ?? [];
+    return { item, parent, siblings };
+  }
+
+  function getExplorerSelection(page: Extract<BrowserPage, { type: 'portfolio-files' }>) {
+    return getExplorerSelectionFromPath(page.itemPath);
+  }
+
+  function selectExplorerSidebar(item: ExplorerItem) {
+    selectedExplorerPath = item.path;
+  }
+
+  function openExplorerSidebar(item: ExplorerItem) {
+    selectExplorerSidebar(item);
+  }
+
+  function selectExplorerItem(item: ExplorerItem) {
+    selectedExplorerPath = item.path;
+  }
+
+  function openExplorerItem(item: ExplorerItem) {
+    activateExplorerItem(item);
+  }
+
+  function activateExplorerItem(item: ExplorerItem) {
+    if (item.kind === 'folder') {
+      selectedExplorerPath = item.path;
+      return;
+    }
+
+    selectedExplorerPath = item.path;
+    runExplorerAction(item.action);
+  }
+
+  function runExplorerAction(action?: ExplorerAction) {
+    if (!action) return;
+    if (action.kind === 'route') {
+      openBrowserPage(action.target);
+      return;
+    }
+    openExternalBrowserLink(action.target, action.targetMode ?? '_blank');
+  }
+
   function browserBack() {
     const tab = activeBrowserTab;
     if (!tab || tab.historyIndex === 0) return;
     tab.historyIndex -= 1;
-    tab.label = tab.history[tab.historyIndex].title;
+    const page = tab.history[tab.historyIndex];
+    tab.label = page.title;
     browserTabs = [...browserTabs];
-    syncBrowserAddress();
+    syncBrowserAddress(page);
   }
 
   function browserForward() {
     const tab = activeBrowserTab;
     if (!tab || tab.historyIndex >= tab.history.length - 1) return;
     tab.historyIndex += 1;
-    tab.label = tab.history[tab.historyIndex].title;
+    const page = tab.history[tab.historyIndex];
+    tab.label = page.title;
     browserTabs = [...browserTabs];
-    syncBrowserAddress();
+    syncBrowserAddress(page);
   }
 
   function openNewBrowserTab() {
@@ -494,7 +783,7 @@
   function switchBrowserTab(id: number) {
     activeBrowserTabId = id;
     clearBrowserWarning();
-    syncBrowserAddress();
+    syncBrowserAddress(getCurrentBrowserPage(browserTabs.find((tab) => tab.id === id)));
   }
 
   function closeBrowserTab(id: number) {
@@ -512,7 +801,7 @@
     }
 
     clearBrowserWarning();
-    syncBrowserAddress();
+    syncBrowserAddress(getCurrentBrowserPage(browserTabs.find((tab) => tab.id === activeBrowserTabId)));
   }
 
   function clearBrowserWarning() {
@@ -532,7 +821,7 @@
     }, 5000);
   }
 
-  function focusWindow(name: 'browser' | 'terminal') {
+  function focusWindow(name: 'browser' | 'terminal' | 'files') {
     windowOrder = [...windowOrder.filter((item) => item !== name), name];
   }
 
@@ -548,6 +837,14 @@
       y: Math.max(8, Math.min(browserWindow.y, maxHeight - browserWindow.height - 76))
     };
 
+    filesWindow = {
+      ...filesWindow,
+      width: Math.min(filesWindow.width, maxWidth - 24),
+      height: Math.min(filesWindow.height, maxHeight - 110),
+      x: Math.max(8, Math.min(filesWindow.x, maxWidth - filesWindow.width - 8)),
+      y: Math.max(8, Math.min(filesWindow.y, maxHeight - filesWindow.height - 76))
+    };
+
     terminalWindow = {
       ...terminalWindow,
       width: Math.min(terminalWindow.width, maxWidth - 16),
@@ -557,10 +854,11 @@
     };
   }
 
-  function startMove(windowName: 'browser' | 'terminal', event: MouseEvent) {
+  function startMove(windowName: 'browser' | 'terminal' | 'files', event: MouseEvent) {
     const target = event.target as HTMLElement | null;
     if (target?.closest('button, input')) return;
-    const box = windowName === 'browser' ? browserWindow : terminalWindow;
+    const box =
+      windowName === 'browser' ? browserWindow : windowName === 'files' ? filesWindow : terminalWindow;
     if (box.maximized) return;
     activeDrag = {
       kind: 'move',
@@ -572,12 +870,13 @@
   }
 
   function startResize(
-    windowName: 'browser' | 'terminal',
+    windowName: 'browser' | 'terminal' | 'files',
     edge: 'left' | 'right' | 'bottom' | 'bottom-right' | 'bottom-left',
     event: MouseEvent
   ) {
     event.stopPropagation();
-    const box = windowName === 'browser' ? browserWindow : terminalWindow;
+    const box =
+      windowName === 'browser' ? browserWindow : windowName === 'files' ? filesWindow : terminalWindow;
     if (box.maximized) return;
     activeDrag = {
       kind: 'resize',
@@ -589,9 +888,11 @@
     };
   }
 
-  function updateWindowBox(name: 'browser' | 'terminal', nextBox: WindowBox) {
+  function updateWindowBox(name: 'browser' | 'terminal' | 'files', nextBox: WindowBox) {
     if (name === 'browser') {
       browserWindow = nextBox;
+    } else if (name === 'files') {
+      filesWindow = nextBox;
     } else {
       terminalWindow = nextBox;
     }
@@ -607,7 +908,7 @@
     return { ...box, x, y, width, height };
   }
 
-  function toggleMaximize(windowName: 'browser' | 'terminal') {
+  function toggleMaximize(windowName: 'browser' | 'terminal' | 'files') {
     if (windowName === 'browser') {
       if (!browserWindow.maximized) {
         browserRestoreBox = { ...browserWindow };
@@ -616,6 +917,15 @@
         browserWindow = browserRestoreBox
           ? { ...browserRestoreBox, maximized: false, minimized: false }
           : { ...browserWindow, maximized: false };
+      }
+    } else if (windowName === 'files') {
+      if (!filesWindow.maximized) {
+        filesRestoreBox = { ...filesWindow };
+        filesWindow = { ...filesWindow, maximized: true, minimized: false };
+      } else {
+        filesWindow = filesRestoreBox
+          ? { ...filesRestoreBox, maximized: false, minimized: false }
+          : { ...filesWindow, maximized: false };
       }
     } else {
       if (!terminalWindow.maximized) {
@@ -629,9 +939,9 @@
     }
   }
 
-  function toggleMinimize(windowName: 'browser' | 'terminal') {
-    const compactWidth = windowName === 'browser' ? 620 : 760;
-    const compactHeight = windowName === 'browser' ? 360 : 320;
+  function toggleMinimize(windowName: 'browser' | 'terminal' | 'files') {
+    const compactWidth = windowName === 'browser' ? 620 : windowName === 'files' ? 640 : 760;
+    const compactHeight = windowName === 'browser' ? 360 : windowName === 'files' ? 380 : 320;
 
     if (windowName === 'browser') {
       if (!browserWindow.minimized) {
@@ -651,6 +961,25 @@
         browserWindow = browserRestoreBox
           ? { ...browserRestoreBox, maximized: false, minimized: false }
           : { ...browserWindow, minimized: false };
+      }
+    } else if (windowName === 'files') {
+      if (!filesWindow.minimized) {
+        filesRestoreBox = { ...filesWindow };
+        filesWindow = clampWindowBox(
+          {
+            ...filesWindow,
+            width: compactWidth,
+            height: compactHeight,
+            maximized: false,
+            minimized: true
+          },
+          620,
+          320
+        );
+      } else {
+        filesWindow = filesRestoreBox
+          ? { ...filesRestoreBox, maximized: false, minimized: false }
+          : { ...filesWindow, minimized: false };
       }
     } else {
       if (!terminalWindow.minimized) {
@@ -806,6 +1135,7 @@
   on:keydown={(event) => {
     if (event.key === 'Escape' && terminalOpen) closeTerminal();
     if (event.key === 'Escape' && browserOpen) closeBrowser();
+    if (event.key === 'Escape' && filesOpen) closeFiles();
 
     if (browserOpen && !terminalOpen && !event.ctrlKey && !event.metaKey && !event.altKey) {
       const target = event.target as HTMLElement | null;
@@ -829,8 +1159,8 @@
 
     const dx = event.clientX - activeDrag.startX;
     const dy = event.clientY - activeDrag.startY;
-    const minWidth = activeDrag.window === 'browser' ? 560 : 640;
-    const minHeight = activeDrag.window === 'browser' ? 420 : 420;
+    const minWidth = activeDrag.window === 'browser' ? 560 : activeDrag.window === 'files' ? 620 : 640;
+    const minHeight = activeDrag.window === 'browser' ? 420 : activeDrag.window === 'files' ? 320 : 420;
     let nextBox = { ...activeDrag.startBox };
 
     if (activeDrag.kind === 'move') {
@@ -891,7 +1221,11 @@
         <button
           type="button"
           class="taskbar-app"
-          class:active={(app.id === 'terminal' && terminalOpen) || (app.id === 'browser' && browserOpen)}
+          class:active={
+            (app.id === 'terminal' && terminalOpen) ||
+            (app.id === 'browser' && browserOpen) ||
+            (app.id === 'files' && filesOpen)
+          }
           aria-label={app.label}
           on:click={() => {
             if (app.id === 'terminal') {
@@ -899,6 +1233,9 @@
             }
             if (app.id === 'browser') {
               openBrowser();
+            }
+            if (app.id === 'files') {
+              openFiles('root');
             }
           }}
         >
@@ -1087,121 +1424,294 @@
                 <p class="results-empty">No local results matched that query.</p>
               {/if}
             </div>
+          {:else if activeBrowserPage?.type === 'portfolio-files'}
+            {@const explorerSelection = getExplorerSelection(activeBrowserPage)}
+            <div class="file-browser">
+              <aside class="file-browser-sidebar">
+                <div class="file-browser-sidebar-head">
+                  <p class="file-browser-label">Pinned</p>
+                  <strong>Portfolio Files</strong>
+                  <span>Open the work like a curated workspace, not a fake disk image.</span>
+                </div>
+
+                <div class="file-browser-sidebar-list">
+                  {#each explorerSidebarItems as item}
+                    <button
+                      type="button"
+                      class="file-browser-nav"
+                      class:active={explorerSelection.parent.path === item.path || explorerSelection.item.path === item.path}
+                      on:click={() => openExplorerSidebar(item)}
+                    >
+                      <span class="file-browser-nav-icon">{item.kind === 'folder' ? '□' : '•'}</span>
+                      <span class="file-browser-nav-copy">
+                        <strong>{item.label}</strong>
+                        <span>{item.badge ?? item.description}</span>
+                      </span>
+                    </button>
+                  {/each}
+                </div>
+              </aside>
+
+              <section class="file-browser-main">
+                <div class="file-browser-head">
+                  <div>
+                    <p class="results-meta">portfolio.local/files/{explorerSelection.item.path === 'root' ? '' : explorerSelection.item.path}</p>
+                    <h2>{explorerSelection.item.kind === 'folder' ? explorerSelection.item.label : explorerSelection.parent.label}</h2>
+                  </div>
+                  <div class="file-browser-head-actions">
+                    <button type="button" class="portfolio-preview-link" on:click={() => openBrowserPage('portfolio.local/projects')}>Project grid</button>
+                    <button type="button" class="portfolio-preview-link" on:click={() => openBrowserPage('portfolio.local/resume')}>Resume</button>
+                  </div>
+                </div>
+
+                {#if explorerSelection.item.path === 'root'}
+                  <section class="file-browser-banner">
+                    <p class="file-browser-label">Suggested start</p>
+                    <strong>Open `Featured Work`, then move into `About` or `Experience`.</strong>
+                    <span>This explorer is arranged to tell a story quickly: strongest builds first, context second, supporting proof after that.</span>
+                  </section>
+                {/if}
+
+                <div class="file-browser-grid">
+                  {#each explorerSelection.siblings as item}
+                    <button
+                      type="button"
+                      class="file-browser-card"
+                      class:selected={item.path === explorerSelection.item.path}
+                      on:click={() => openExplorerItem(item)}
+                    >
+                      <div class="file-browser-card-top">
+                        <span class={`file-kind ${item.kind}`}>{item.kind}</span>
+                        {#if item.badge}
+                          <span class="file-browser-badge">{item.badge}</span>
+                        {/if}
+                      </div>
+                      <strong>{item.label}</strong>
+                      <p>{item.description}</p>
+                      {#if item.meta?.length}
+                        <div class="file-browser-meta">
+                          {#each item.meta as meta}
+                            <span>{meta}</span>
+                          {/each}
+                        </div>
+                      {/if}
+                    </button>
+                  {/each}
+                </div>
+
+                {#if explorerSelection.item.path === 'root'}
+                  <section class="file-browser-featured-strip">
+                    {#each explorerFeaturedItems as item}
+                      <button type="button" class="file-browser-mini" on:click={() => openExplorerItem(item)}>
+                        <span class="file-kind {item.kind}">{item.kind}</span>
+                        <strong>{item.label}</strong>
+                      </button>
+                    {/each}
+                  </section>
+                {/if}
+              </section>
+
+              <aside class="file-browser-preview">
+                <div class="file-browser-preview-head">
+                  <p class="file-browser-label">Preview</p>
+                  <strong>{explorerSelection.item.label}</strong>
+                  <span>{explorerSelection.item.description}</span>
+                </div>
+
+                {#if explorerSelection.item.project}
+                  <div class="file-browser-preview-block">
+                    <p class="file-browser-label">Case Study</p>
+                    <strong>{explorerSelection.item.project.title}</strong>
+                    <span>{explorerSelection.item.project.impact}</span>
+                  </div>
+                {/if}
+
+                {#if explorerSelection.item.meta?.length}
+                  <div class="file-browser-preview-block">
+                    <p class="file-browser-label">Metadata</p>
+                    <div class="file-browser-meta stack">
+                      {#each explorerSelection.item.meta as meta}
+                        <span>{meta}</span>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                {#if explorerSelection.item.tags?.length}
+                  <div class="file-browser-preview-block">
+                    <p class="file-browser-label">Tags</p>
+                    <div class="browser-project-tags">
+                      {#each explorerSelection.item.tags as tag}
+                        <span>{tag}</span>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                <div class="file-browser-preview-actions">
+                  {#if explorerSelection.item.action}
+                    <button type="button" class="portfolio-preview-link primary" on:click={() => runExplorerAction(explorerSelection.item.action)}>
+                      {explorerSelection.item.action.label}
+                    </button>
+                  {/if}
+                  {#if explorerSelection.item.project}
+                    <button
+                      type="button"
+                      class="portfolio-preview-link"
+                      on:click={() => openBrowserPage(`portfolio.local/project/${explorerSelection.item.project?.slug ?? ''}`)}
+                    >
+                      Open project page
+                    </button>
+                  {/if}
+                  {#if explorerSelection.item.kind !== 'folder' && explorerSelection.parent.path !== 'root'}
+                    <button type="button" class="portfolio-preview-link" on:click={() => openBrowserPage(`portfolio.local/files/${explorerSelection.parent.path}`)}>
+                      Back to folder
+                    </button>
+                  {/if}
+                </div>
+              </aside>
+            </div>
           {:else if activeBrowserPage?.type === 'portfolio-home'}
             <div class="browser-portfolio browser-portfolio-preview">
               <div class="portfolio-preview-actions">
-                <a class="portfolio-preview-link" href={resumePdfUrl} target="_blank" rel="noreferrer">Resume PDF</a>
-                <a class="portfolio-preview-link" href={emailUrl}>Email</a>
+                <button type="button" class="portfolio-preview-link" on:click={() => openBrowserPage('portfolio.local/resume')}>Resume</button>
+                <button type="button" class="portfolio-preview-link" on:click={() => openBrowserPage('portfolio.local/projects')}>Projects</button>
+                <button type="button" class="portfolio-preview-link" on:click={() => openBrowserPage('portfolio.local/experience')}>Experience</button>
+                <button type="button" class="portfolio-preview-link" on:click={() => openExternalBrowserLink(githubUrl)}>GitHub</button>
+                <button type="button" class="portfolio-preview-link" on:click={() => openExternalBrowserLink(emailUrl, '_self')}>Email</button>
               </div>
-              <div class="portfolio-preview-shell" aria-hidden="true">
-                <div class="preview-canvas">
+              <div class="portfolio-preview-shell">
+                <div class="preview-canvas preview-real">
                   <div class="preview-grid-lines"></div>
 
-                  <div class="preview-hero">
-                    <div class="preview-hero-main">
-                      <div class="preview-status">
-                        <div class="preview-status-dot"></div>
-                        <div class="preview-status-line"></div>
-                      </div>
-                      <div class="preview-eyebrow">signal archive / prototype profile / visual draft</div>
-                      <div class="preview-name-block"></div>
-                      <div class="preview-role-line"></div>
-                      <div class="preview-role-line short"></div>
-                      <div class="preview-copy-line"></div>
-                      <div class="preview-copy-line"></div>
-                      <div class="preview-copy-line mid"></div>
-                      <div class="preview-gibberish-block">
-                        vexora quantic lumen drift, signal bloom over static fields and silent modules.
-                      </div>
-                      <div class="preview-gibberish-block faint">
-                        nullwave archive fragment: soft relay, chrome atlas, memory pulse, green horizon.
-                      </div>
-                      <div class="preview-pill-row">
-                        <div class="preview-pill"></div>
-                        <div class="preview-pill"></div>
-                        <div class="preview-pill wide"></div>
-                      </div>
+                  <section class="preview-real-hero">
+                    <div class="preview-status">
+                      <div class="preview-status-dot"></div>
+                      <div class="preview-status-line"></div>
                     </div>
-
-                    <div class="preview-hero-side">
-                      <div class="preview-portrait">
-                        <img
-                          src="https://picsum.photos/seed/portfolio-hero/520/640"
-                          alt="Abstract profile placeholder"
-                          loading="lazy"
-                        />
-                      </div>
-                      <div class="preview-badge-card">
-                        <div class="preview-line short"></div>
-                        <div class="preview-line tiny"></div>
-                        <div class="preview-card-copy tiny">
-                          prism relay / ghost index / north sector
-                        </div>
-                      </div>
+                    <p class="preview-eyebrow">{hero.eyebrow}</p>
+                    <h2 class="preview-real-name">{hero.name}</h2>
+                    <p class="preview-real-role">{hero.role}</p>
+                    <p class="preview-real-copy">{hero.summary}</p>
+                    <p class="preview-real-copy faint">{hero.note}</p>
+                    <div class="preview-real-links">
+                      <button type="button" on:click={() => openExternalBrowserLink(githubUrl)}>GitHub</button>
+                      <button type="button" on:click={() => openExternalBrowserLink(linkedinUrl)}>LinkedIn</button>
+                      <button type="button" on:click={() => openBrowserPage('portfolio.local/resume')}>Resume</button>
                     </div>
-                  </div>
+                  </section>
 
-                  <div class="preview-metric-row">
-                    <div class="preview-metric"></div>
-                    <div class="preview-metric"></div>
-                    <div class="preview-metric"></div>
-                    <div class="preview-metric"></div>
-                  </div>
+                  <section class="preview-real-metrics">
+                    {#each hero.stats as stat}
+                      <article class="preview-real-metric">
+                        <span>{stat.label}</span>
+                        <strong>{stat.value}</strong>
+                      </article>
+                    {/each}
+                  </section>
 
-                  <div class="preview-project-grid">
-                    <div class="preview-card preview-card-large">
-                      <div class="preview-card-top"></div>
-                      <div class="preview-line"></div>
-                      <div class="preview-line short"></div>
-                      <div class="preview-line tiny"></div>
+                  <section class="preview-real-section">
+                    <div class="preview-real-section-head">
+                      <p class="preview-real-section-kicker">Featured work</p>
+                      <strong>Flagship case studies with real systems, not filler.</strong>
                     </div>
-
-                    <div class="preview-column">
-                      <div class="preview-card preview-card-medium">
-                        <div class="preview-line"></div>
-                        <div class="preview-line short"></div>
-                        <div class="preview-card-copy">
-                          orbital syntax, velvet packets, and a small chorus of phantom metrics.
-                        </div>
-                      </div>
-                      <div class="preview-row">
-                        <div class="preview-card preview-card-small">
-                          <div class="preview-line short"></div>
-                          <div class="preview-card-copy tiny">
-                            axiom drift
+                    <div class="preview-real-grid">
+                      {#each projects.slice(0, 4) as project}
+                        <button
+                          type="button"
+                          class="preview-real-project"
+                          on:click={() => openBrowserPage(`portfolio.local/project/${project.slug}`)}
+                        >
+                          <p class="preview-real-card-kicker">{project.kicker}</p>
+                          <strong>{project.title}</strong>
+                          <p>{project.summary}</p>
+                          <div class="preview-real-token-row">
+                            {#each project.stack.slice(0, 4) as token}
+                              <span>{token}</span>
+                            {/each}
                           </div>
-                        </div>
-                        <div class="preview-card preview-card-small accent">
-                          <div class="preview-line tiny"></div>
-                          <div class="preview-card-copy tiny">
-                            neon cache
-                          </div>
-                        </div>
+                        </button>
+                      {/each}
+                    </div>
+                  </section>
+
+                  <section class="preview-real-split">
+                    <div class="preview-real-card medium">
+                      <p class="preview-real-card-kicker">Current focus</p>
+                      <strong>{experience[0].role}</strong>
+                      <p>{experience[0].summary}</p>
+                      <div class="preview-real-token-row">
+                        {#each experience[0].stack.slice(0, 4) as token}
+                          <span>{token}</span>
+                        {/each}
                       </div>
                     </div>
-                  </div>
 
-                  <div class="preview-footer">
-                    <div class="preview-chip"></div>
-                    <div class="preview-chip"></div>
-                    <div class="preview-chip wide"></div>
-                  </div>
+                    <div class="preview-real-card medium accent">
+                      <p class="preview-real-card-kicker">Skills snapshot</p>
+                      <strong>{skills[0].title}</strong>
+                      <p>{skills[0].summary}</p>
+                      <div class="preview-real-token-row">
+                        {#each skills[0].items.slice(0, 5) as token}
+                          <span>{token}</span>
+                        {/each}
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="preview-real-section compact">
+                    <div class="preview-real-section-head">
+                      <p class="preview-real-section-kicker">Experience</p>
+                      <strong>Built across autonomy, ML, healthcare systems, and policy.</strong>
+                    </div>
+                    <div class="preview-real-experience-list">
+                      {#each experience.slice(0, 3) as item}
+                        <article class="preview-real-experience">
+                          <p class="preview-real-card-kicker">{item.organization}</p>
+                          <strong>{item.role}</strong>
+                          <p>{item.summary}</p>
+                        </article>
+                      {/each}
+                    </div>
+                  </section>
+
+                  <section class="preview-real-footer">
+                    <div class="preview-real-card small accent">
+                      <p class="preview-real-card-kicker">Contact</p>
+                      <strong>Resume / GitHub / LinkedIn / Email</strong>
+                    </div>
+                    <div class="preview-real-links footer-links">
+                      <button type="button" on:click={() => openBrowserPage('portfolio.local/resume')}>Resume</button>
+                      <button type="button" on:click={() => openExternalBrowserLink(githubUrl)}>GitHub</button>
+                      <button type="button" on:click={() => openExternalBrowserLink(linkedinUrl)}>LinkedIn</button>
+                      <button type="button" on:click={() => openExternalBrowserLink(emailUrl, '_self')}>Email</button>
+                    </div>
+                  </section>
                 </div>
               </div>
             </div>
           {:else if activeBrowserPage?.type === 'portfolio-projects'}
-            <div class="browser-results">
+            <div class="browser-results browser-projects-view">
               <p class="results-meta">portfolio.local/projects</p>
-              <div class="results-list">
+              <div class="browser-project-grid">
                 {#each projects as project}
                   <button
                     type="button"
-                    class="result-card"
+                    class="browser-project-card"
                     on:click={() => openBrowserPage(`portfolio.local/project/${project.slug}`)}
                   >
-                    <span class="result-url">portfolio.local/project/{project.slug}</span>
+                    <span class="browser-project-kicker">{project.kicker}</span>
                     <strong>{project.title}</strong>
-                    <span>{project.summary}</span>
+                    <span class="browser-project-summary">{project.summary}</span>
+                    <div class="browser-project-meta">
+                      <span>{project.status}</span>
+                      <span>{project.year}</span>
+                    </div>
+                    <div class="browser-project-tags">
+                      {#each project.stack.slice(0, 4) as token}
+                        <span>{token}</span>
+                      {/each}
+                    </div>
                   </button>
                 {/each}
               </div>
@@ -1221,15 +1731,62 @@
               </div>
             </div>
           {:else if activeBrowserPage?.type === 'portfolio-project'}
-            <div class="browser-portfolio">
+            <div class="browser-portfolio browser-project-detail">
               <p class="results-meta">{activeBrowserPage.url}</p>
               <h2>{activeBrowserPage.project.title}</h2>
-              <p>{activeBrowserPage.project.details}</p>
-              <div class="token-row browser-token-row">
-                {#each activeBrowserPage.project.stack as item}
-                  <span class="token">{item}</span>
-                {/each}
+              <div class="inline-meta">
+                <span>{activeBrowserPage.project.kicker}</span>
+                <span>{activeBrowserPage.project.status}</span>
+                <span>{activeBrowserPage.project.year}</span>
               </div>
+
+              <div class="browser-project-detail-grid">
+                <section class="browser-detail-panel">
+                  <p class="browser-detail-label">Summary</p>
+                  <p>{activeBrowserPage.project.summary}</p>
+                </section>
+
+                <section class="browser-detail-panel accent">
+                  <p class="browser-detail-label">Impact</p>
+                  <p>{activeBrowserPage.project.impact}</p>
+                </section>
+              </div>
+
+              <section class="browser-detail-section">
+                <p class="browser-detail-label">System</p>
+                <p>{activeBrowserPage.project.details}</p>
+              </section>
+
+              <section class="browser-detail-section">
+                <p class="browser-detail-label">Key highlights</p>
+                <ul class="browser-detail-list">
+                  {#each activeBrowserPage.project.highlights as item}
+                    <li>{item}</li>
+                  {/each}
+                </ul>
+              </section>
+
+              <section class="browser-detail-section">
+                <p class="browser-detail-label">Stack</p>
+                <div class="token-row browser-token-row">
+                  {#each activeBrowserPage.project.stack as item}
+                    <span class="token">{item}</span>
+                  {/each}
+                </div>
+              </section>
+
+              {#if activeBrowserPage.project.links.length}
+                <section class="browser-detail-section">
+                  <p class="browser-detail-label">Links</p>
+                  <div class="link-row">
+                    {#each activeBrowserPage.project.links as link}
+                      <a href={link.href} target={link.external ? '_blank' : undefined} rel={link.external ? 'noreferrer' : undefined}>
+                        {link.label}
+                      </a>
+                    {/each}
+                  </div>
+                </section>
+              {/if}
             </div>
           {:else if activeBrowserPage?.type === 'terminal-info'}
             <div class="browser-portfolio">
@@ -1365,6 +1922,160 @@
         <button type="button" class="resize-handle bottom" aria-label="Resize browser bottom" on:mousedown={(event) => startResize('browser', 'bottom', event)}></button>
         <button type="button" class="resize-handle bottom-right" aria-label="Resize browser bottom right" on:mousedown={(event) => startResize('browser', 'bottom-right', event)}></button>
         <button type="button" class="resize-handle bottom-left" aria-label="Resize browser bottom left" on:mousedown={(event) => startResize('browser', 'bottom-left', event)}></button>
+      {/if}
+    </section>
+  {/if}
+
+  {#if filesOpen}
+    <section
+      class="files-window"
+      class:maximized={filesWindow.maximized}
+      class:minimized={filesWindow.minimized}
+      aria-label="Portfolio file explorer"
+      on:mousedown={() => focusWindow('files')}
+      style={
+        filesWindow.maximized
+          ? `z-index:${filesZIndex};`
+          : `left:${filesWindow.x}px;top:${filesWindow.y}px;width:${filesWindow.width}px;height:${filesWindow.height}px;z-index:${filesZIndex};`
+      }
+    >
+      <header class="window-bar files-bar" on:mousedown={(event) => startMove('files', event)}>
+        <div class="window-tabs">
+          <div class="window-tab active files-tab">
+            <span class="tab-icon icon-folder"></span>
+            <span>File Explorer</span>
+          </div>
+        </div>
+
+        <div class="window-controls">
+          <button
+            type="button"
+            class="control-minimize"
+            aria-label="Minimize files"
+            on:click={() => toggleMinimize('files')}
+          ></button>
+          <button
+            type="button"
+            class="control-maximize"
+            aria-label="Maximize files"
+            on:click={() => toggleMaximize('files')}
+          ></button>
+          <button
+            type="button"
+            class="control-close"
+            aria-label="Close files"
+            on:click={closeFiles}
+          ></button>
+        </div>
+      </header>
+
+      <div class="files-surface">
+        <aside class="files-sidebar">
+          <div class="files-sidebar-group">
+            <p class="files-label">Locations</p>
+            {#each explorerSidebarItems as item}
+              <button
+                type="button"
+                class="files-sidebar-item"
+                class:active={explorerSelection.parent.path === item.path || explorerSelection.item.path === item.path}
+                on:click={() => selectExplorerSidebar(item)}
+              >
+                <span class="files-sidebar-dot"></span>
+                <span>{item.label}</span>
+              </button>
+            {/each}
+          </div>
+        </aside>
+
+        <div class="files-content">
+          <div class="files-toolbar">
+            <div class="files-breadcrumbs">
+              <span>Home</span>
+              {#if explorerSelection.parent.path !== 'root'}
+                <span>/</span>
+                <span>{explorerSelection.parent.label}</span>
+              {/if}
+              {#if explorerSelection.item.path !== explorerSelection.parent.path}
+                <span>/</span>
+                <span>{explorerSelection.item.label}</span>
+              {/if}
+            </div>
+          </div>
+
+          <div class="files-pane">
+            <div class="files-list">
+              <div class="files-list-head">
+                <span>Name</span>
+                <span>Type</span>
+                <span>Info</span>
+              </div>
+
+              {#each explorerSelection.siblings as item}
+                <button
+                  type="button"
+                  class="files-row"
+                  class:selected={item.path === explorerSelection.item.path}
+                  on:click={() => selectExplorerItem(item)}
+                  on:dblclick={() => activateExplorerItem(item)}
+                >
+                  <span class="files-row-name">
+                    <span class={`file-kind subtle ${item.kind}`}></span>
+                    <strong>{item.label}</strong>
+                  </span>
+                  <span class="files-row-type">{item.kind}</span>
+                  <span class="files-row-info">{item.badge ?? item.meta?.[0] ?? item.description}</span>
+                </button>
+              {/each}
+            </div>
+
+            <aside class="files-preview">
+              <p class="files-label">Preview</p>
+              <strong>{explorerSelection.item.label}</strong>
+              <p>{explorerSelection.item.description}</p>
+
+              {#if explorerSelection.item.meta?.length}
+                <div class="files-preview-group">
+                  {#each explorerSelection.item.meta as meta}
+                    <span>{meta}</span>
+                  {/each}
+                </div>
+              {/if}
+
+              {#if explorerSelection.item.tags?.length}
+                <div class="files-preview-group tags">
+                  {#each explorerSelection.item.tags as tag}
+                    <span>{tag}</span>
+                  {/each}
+                </div>
+              {/if}
+
+              <div class="files-preview-actions">
+                {#if explorerSelection.item.action}
+                  <button type="button" class="files-action" on:click={() => runExplorerAction(explorerSelection.item.action)}>
+                    {explorerSelection.item.action.label}
+                  </button>
+                {/if}
+                {#if explorerSelection.item.project}
+                  <button
+                    type="button"
+                    class="files-action secondary"
+                    on:click={() => openBrowserPage(`portfolio.local/project/${explorerSelection.item.project?.slug ?? ''}`)}
+                  >
+                    Open project
+                  </button>
+                {/if}
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+
+      {#if !filesWindow.maximized}
+        <button type="button" class="resize-handle left" aria-label="Resize files left" on:mousedown={(event) => startResize('files', 'left', event)}></button>
+        <button type="button" class="resize-handle right" aria-label="Resize files right" on:mousedown={(event) => startResize('files', 'right', event)}></button>
+        <button type="button" class="resize-handle bottom" aria-label="Resize files bottom" on:mousedown={(event) => startResize('files', 'bottom', event)}></button>
+        <button type="button" class="resize-handle bottom-right" aria-label="Resize files bottom right" on:mousedown={(event) => startResize('files', 'bottom-right', event)}></button>
+        <button type="button" class="resize-handle bottom-left" aria-label="Resize files bottom left" on:mousedown={(event) => startResize('files', 'bottom-left', event)}></button>
       {/if}
     </section>
   {/if}
@@ -1859,15 +2570,29 @@
     overflow: hidden;
   }
 
+  .files-window {
+    position: fixed;
+    z-index: 27;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    background: #171819;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+    overflow: hidden;
+  }
+
   .browser-window.maximized,
-  .terminal-window.maximized {
+  .terminal-window.maximized,
+  .files-window.maximized {
     inset: 8px 8px 74px 8px;
     width: auto !important;
     height: auto !important;
   }
 
   .browser-window.minimized,
-  .terminal-window.minimized {
+  .terminal-window.minimized,
+  .files-window.minimized {
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
   }
 
@@ -1932,6 +2657,243 @@
     background:
       radial-gradient(circle at center, #3f7cff 0 25%, #ffffff 26% 34%, transparent 35%),
       conic-gradient(#e94f3d 0 33%, #f2be42 33% 66%, #25a45a 66% 100%);
+  }
+
+  .icon-folder {
+    background: linear-gradient(180deg, #eec96d, #bc8d31);
+    position: relative;
+  }
+
+  .icon-folder::before {
+    content: '';
+    position: absolute;
+    left: 1px;
+    top: -1px;
+    width: 7px;
+    height: 4px;
+    border-radius: 3px 3px 0 0;
+    background: #f5d990;
+  }
+
+  .files-surface {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    background: #171819;
+  }
+
+  .files-sidebar {
+    padding: 0.9rem 0.7rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    background: #141516;
+  }
+
+  .files-sidebar-group,
+  .files-content,
+  .files-preview {
+    display: grid;
+    align-content: start;
+    gap: 0.65rem;
+  }
+
+  .files-label {
+    margin: 0;
+    color: #9aa0a6;
+    font: 500 0.7rem/1.2 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .files-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    min-height: 34px;
+    padding: 0 0.65rem;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #d4d7db;
+    cursor: pointer;
+    text-align: left;
+    font: 500 0.86rem/1 'Space Grotesk', sans-serif;
+  }
+
+  .files-sidebar-item:hover,
+  .files-sidebar-item:focus-visible,
+  .files-sidebar-item.active {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .files-sidebar-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #7aa2ff;
+  }
+
+  .files-content {
+    min-width: 0;
+    padding: 0.85rem 1rem 1rem;
+  }
+
+  .files-toolbar {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+  }
+
+  .files-breadcrumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    color: #aeb4bb;
+    font: 500 0.8rem/1.3 'IBM Plex Mono', monospace;
+  }
+
+  .files-pane {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    gap: 1rem;
+  }
+
+  .files-list {
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .files-list-head,
+  .files-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) 100px minmax(0, 1fr);
+    gap: 0.8rem;
+    align-items: center;
+  }
+
+  .files-list-head {
+    min-height: 34px;
+    padding: 0 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: #8d949c;
+    font: 500 0.72rem/1 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .files-row {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 0.85rem;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    background: transparent;
+    color: #d8dde3;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .files-row:hover,
+  .files-row:focus-visible,
+  .files-row.selected {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .files-row:last-child {
+    border-bottom: 0;
+  }
+
+  .files-row-name {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .files-row-name strong,
+  .files-preview strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #f2f4f7;
+    font: 600 0.92rem/1.2 'Space Grotesk', sans-serif;
+  }
+
+  .files-row-type,
+  .files-row-info,
+  .files-preview p,
+  .files-preview-group span {
+    color: #aeb4bb;
+    font: 500 0.76rem/1.45 'IBM Plex Mono', monospace;
+  }
+
+  .files-row-info {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .files-preview {
+    padding: 0.85rem 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .files-preview p {
+    margin: 0;
+    line-height: 1.55;
+  }
+
+  .files-preview-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .files-preview-group span {
+    padding: 0.25rem 0.45rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .files-preview-group.tags span {
+    background: rgba(122, 162, 255, 0.12);
+    color: #cfdcff;
+  }
+
+  .files-preview-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    padding-top: 0.2rem;
+  }
+
+  .files-action {
+    min-height: 32px;
+    padding: 0 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #e8eaed;
+    cursor: pointer;
+    font: 500 0.75rem/1 'IBM Plex Mono', monospace;
+  }
+
+  .files-action.secondary {
+    background: transparent;
+  }
+
+  .file-kind.subtle {
+    width: 12px;
+    height: 12px;
+    padding: 0;
+    border-radius: 3px;
+    flex: 0 0 auto;
   }
 
   .browser-surface {
@@ -2254,6 +3216,7 @@
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.03);
     color: #e8eaed;
+    cursor: pointer;
     text-decoration: none;
     font: 500 0.82rem/1 'IBM Plex Mono', monospace;
     transition:
@@ -2343,6 +3306,124 @@
     margin-top: 1.2rem;
   }
 
+  .browser-projects-view {
+    align-content: start;
+  }
+
+  .browser-project-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .browser-project-card {
+    display: grid;
+    gap: 0.7rem;
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid rgba(138, 180, 248, 0.12);
+    border-radius: 16px;
+    background: rgba(12, 18, 14, 0.82);
+    color: #e8eaed;
+    cursor: pointer;
+    text-align: left;
+    transition:
+      transform 0.14s ease,
+      border-color 0.14s ease,
+      background-color 0.14s ease;
+  }
+
+  .browser-project-card:hover,
+  .browser-project-card:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(138, 180, 248, 0.32);
+    background: rgba(16, 24, 19, 0.88);
+  }
+
+  .browser-project-kicker {
+    color: rgba(138, 180, 248, 0.82);
+    font: 500 0.74rem/1.35 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .browser-project-summary {
+    color: #bdc1c6;
+    line-height: 1.6;
+  }
+
+  .browser-project-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    color: #8fb49c;
+    font: 500 0.72rem/1.35 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .browser-project-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .browser-project-tags span {
+    padding: 0.35rem 0.55rem;
+    border: 1px solid rgba(92, 255, 151, 0.12);
+    border-radius: 999px;
+    color: #f6ffc4;
+    background: rgba(22, 36, 28, 0.78);
+    font: 500 0.68rem/1 'IBM Plex Mono', monospace;
+  }
+
+  .browser-project-detail {
+    align-content: start;
+  }
+
+  .browser-project-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .browser-detail-panel,
+  .browser-detail-section {
+    padding: 1rem;
+    border: 1px solid rgba(138, 180, 248, 0.12);
+    border-radius: 16px;
+    background: rgba(12, 18, 14, 0.82);
+  }
+
+  .browser-detail-panel.accent {
+    border-color: rgba(92, 255, 151, 0.14);
+    background: rgba(16, 24, 19, 0.88);
+  }
+
+  .browser-detail-section + .browser-detail-section {
+    margin-top: 1rem;
+  }
+
+  .browser-detail-label {
+    margin: 0 0 0.7rem !important;
+    color: #8ab4f8 !important;
+    font: 500 0.76rem/1.35 'IBM Plex Mono', monospace !important;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .browser-detail-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: #d8ffe5;
+  }
+
+  .browser-detail-list li + li {
+    margin-top: 0.45rem;
+  }
+
   .browser-open-terminal {
     min-height: 42px;
     padding: 0 1rem;
@@ -2352,6 +3433,285 @@
     color: #e8eaed;
     cursor: pointer;
     font: 500 0.92rem/1 'Space Grotesk', sans-serif;
+  }
+
+  .file-browser {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.9fr) minmax(0, 1.6fr) minmax(240px, 1fr);
+    min-height: 100%;
+    color: #e8eaed;
+  }
+
+  .file-browser-sidebar,
+  .file-browser-preview {
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+    padding: 1.1rem;
+    background: rgba(10, 14, 11, 0.84);
+  }
+
+  .file-browser-sidebar {
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .file-browser-preview {
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .file-browser-main {
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+    padding: 1.1rem;
+    background:
+      radial-gradient(circle at top right, rgba(78, 250, 123, 0.08), transparent 34%),
+      linear-gradient(180deg, rgba(11, 17, 13, 0.92), rgba(7, 11, 8, 0.98));
+  }
+
+  .file-browser-sidebar-head,
+  .file-browser-preview-head,
+  .file-browser-preview-block,
+  .file-browser-banner {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .file-browser-sidebar-head strong,
+  .file-browser-preview-head strong,
+  .file-browser-preview-block strong,
+  .file-browser-banner strong {
+    color: #f3fff7;
+    font: 700 1.05rem/1.2 'Space Grotesk', sans-serif;
+  }
+
+  .file-browser-sidebar-head span,
+  .file-browser-preview-head span,
+  .file-browser-preview-block span,
+  .file-browser-banner span {
+    color: #9aa0a6;
+    line-height: 1.55;
+  }
+
+  .file-browser-label {
+    margin: 0;
+    color: #8ab4f8;
+    font: 500 0.72rem/1.2 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .file-browser-sidebar-list,
+  .file-browser-head,
+  .file-browser-head-actions,
+  .file-browser-meta,
+  .file-browser-preview-actions,
+  .file-browser-featured-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+  }
+
+  .file-browser-sidebar-list {
+    display: grid;
+  }
+
+  .file-browser-nav {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+    width: 100%;
+    padding: 0.85rem 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+    color: #e8eaed;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .file-browser-nav.active,
+  .file-browser-nav:hover,
+  .file-browser-nav:focus-visible {
+    border-color: rgba(138, 180, 248, 0.24);
+    background: rgba(138, 180, 248, 0.08);
+  }
+
+  .file-browser-nav-icon {
+    color: #4efa7b;
+    font: 600 0.88rem/1 'IBM Plex Mono', monospace;
+  }
+
+  .file-browser-nav-copy {
+    display: grid;
+    gap: 0.28rem;
+    min-width: 0;
+  }
+
+  .file-browser-nav-copy strong {
+    font: 600 0.92rem/1.2 'Space Grotesk', sans-serif;
+    color: #f3fff7;
+  }
+
+  .file-browser-nav-copy span {
+    color: #9aa0a6;
+    font: 500 0.72rem/1.45 'IBM Plex Mono', monospace;
+  }
+
+  .file-browser-head {
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .file-browser-head h2 {
+    margin: 0.2rem 0 0;
+  }
+
+  .file-browser-banner {
+    padding: 1rem;
+    border: 1px solid rgba(78, 250, 123, 0.14);
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(18, 32, 22, 0.9), rgba(10, 14, 12, 0.94));
+  }
+
+  .file-browser-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+
+  .file-browser-card,
+  .file-browser-mini {
+    display: grid;
+    gap: 0.65rem;
+    text-align: left;
+    cursor: pointer;
+    color: #e8eaed;
+    transition:
+      transform 0.14s ease,
+      border-color 0.14s ease,
+      background-color 0.14s ease;
+  }
+
+  .file-browser-card {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .file-browser-card:hover,
+  .file-browser-card:focus-visible,
+  .file-browser-card.selected {
+    transform: translateY(-1px);
+    border-color: rgba(138, 180, 248, 0.28);
+    background: rgba(138, 180, 248, 0.08);
+  }
+
+  .file-browser-card strong,
+  .file-browser-mini strong {
+    margin: 0;
+    color: #f5fff8;
+    font: 700 0.98rem/1.2 'Space Grotesk', sans-serif;
+  }
+
+  .file-browser-card p {
+    margin: 0;
+    color: #bdc1c6;
+    line-height: 1.55;
+  }
+
+  .file-browser-card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.7rem;
+    align-items: center;
+  }
+
+  .file-kind,
+  .file-browser-badge {
+    padding: 0.28rem 0.5rem;
+    border-radius: 999px;
+    font: 500 0.66rem/1 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .file-kind {
+    border: 1px solid rgba(92, 255, 151, 0.14);
+    color: #dfffea;
+    background: rgba(22, 36, 28, 0.78);
+  }
+
+  .file-kind.folder {
+    color: #fff4cf;
+    background: rgba(107, 85, 20, 0.28);
+    border-color: rgba(248, 196, 64, 0.16);
+  }
+
+  .file-kind.project {
+    color: #d4e7ff;
+    background: rgba(43, 87, 164, 0.28);
+    border-color: rgba(138, 180, 248, 0.18);
+  }
+
+  .file-kind.document,
+  .file-kind.note,
+  .file-kind.contact {
+    color: #dfffea;
+  }
+
+  .file-browser-badge {
+    color: #8ab4f8;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .file-browser-meta {
+    align-items: center;
+  }
+
+  .file-browser-meta span {
+    padding: 0.32rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #b5c3ba;
+    font: 500 0.66rem/1 'IBM Plex Mono', monospace;
+  }
+
+  .file-browser-meta.stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .file-browser-featured-strip {
+    padding-top: 0.4rem;
+  }
+
+  .file-browser-mini {
+    min-width: 150px;
+    padding: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .file-browser-mini:hover,
+  .file-browser-mini:focus-visible {
+    border-color: rgba(78, 250, 123, 0.24);
+    background: rgba(78, 250, 123, 0.08);
+  }
+
+  .file-browser-preview-actions {
+    padding-top: 0.3rem;
+  }
+
+  .portfolio-preview-link.primary {
+    border-color: rgba(78, 250, 123, 0.22);
+    background: rgba(78, 250, 123, 0.1);
   }
 
   .browser-resume {
@@ -2726,6 +4086,244 @@
     line-height: 1.35;
   }
 
+  .preview-real {
+    align-content: start;
+  }
+
+  .preview-real-hero,
+  .preview-real-metrics,
+  .preview-real-featured {
+    position: relative;
+    z-index: 1;
+  }
+
+  .preview-real-hero {
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .preview-real-name {
+    margin: 0;
+    color: #f1fff5;
+    font: 700 clamp(2.1rem, 5vw, 3.3rem)/0.95 'Space Grotesk', sans-serif;
+    letter-spacing: -0.05em;
+  }
+
+  .preview-real-role {
+    margin: 0;
+    color: rgba(208, 227, 255, 0.94) !important;
+    font: 600 1.05rem/1.45 'Space Grotesk', sans-serif;
+  }
+
+  .preview-real-copy {
+    margin: 0;
+    max-width: 60rem;
+    color: rgba(230, 239, 233, 0.8) !important;
+    font: 500 0.84rem/1.75 'IBM Plex Mono', monospace;
+  }
+
+  .preview-real-copy.faint {
+    color: rgba(138, 180, 248, 0.72) !important;
+  }
+
+  .preview-real-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+  }
+
+  .preview-real-links button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 0.8rem;
+    border: 1px solid rgba(78, 250, 123, 0.14);
+    border-radius: 999px;
+    color: #dfffea;
+    background: rgba(10, 18, 13, 0.72);
+    cursor: pointer;
+    text-decoration: none;
+    font: 500 0.72rem/1 'IBM Plex Mono', monospace;
+    letter-spacing: 0.03em;
+  }
+
+  .preview-real-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .preview-real-section,
+  .preview-real-split,
+  .preview-real-footer {
+    position: relative;
+    z-index: 1;
+  }
+
+  .preview-real-section {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .preview-real-section.compact {
+    gap: 0.8rem;
+  }
+
+  .preview-real-section-head {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .preview-real-section-head strong {
+    color: #f1fff5;
+    font: 700 1.18rem/1.2 'Space Grotesk', sans-serif;
+    letter-spacing: -0.03em;
+  }
+
+  .preview-real-section-kicker {
+    margin: 0;
+    color: rgba(138, 180, 248, 0.82);
+    font: 500 0.72rem/1.35 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .preview-real-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .preview-real-project {
+    text-align: left;
+    cursor: pointer;
+    transition:
+      transform 0.14s ease,
+      border-color 0.14s ease,
+      background-color 0.14s ease;
+  }
+
+  .preview-real-project:hover,
+  .preview-real-project:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(138, 180, 248, 0.28);
+    background: rgba(16, 28, 22, 0.88);
+  }
+
+  .preview-real-split {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .preview-real-experience-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .preview-real-experience {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.95rem;
+    border: 1px solid rgba(138, 180, 248, 0.12);
+    border-radius: 12px;
+    background: rgba(11, 18, 15, 0.82);
+  }
+
+  .preview-real-experience p,
+  .preview-real-experience strong {
+    margin: 0;
+  }
+
+  .preview-real-experience p {
+    color: rgba(224, 238, 229, 0.74);
+    font: 500 0.72rem/1.6 'IBM Plex Mono', monospace;
+  }
+
+  .preview-real-experience strong {
+    color: #f4fff8;
+    font: 700 0.96rem/1.25 'Space Grotesk', sans-serif;
+  }
+
+  .preview-real-footer {
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .footer-links {
+    gap: 0.6rem;
+  }
+
+  .preview-real-metric {
+    padding: 0.95rem;
+    border: 1px solid rgba(138, 180, 248, 0.14);
+    border-radius: 14px;
+    background: rgba(12, 20, 16, 0.8);
+  }
+
+  .preview-real-metric span {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: rgba(138, 180, 248, 0.8);
+    font: 500 0.7rem/1.35 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .preview-real-metric strong {
+    color: #f1fff5;
+    font: 700 1rem/1.2 'Space Grotesk', sans-serif;
+  }
+
+  .preview-real-card {
+    display: grid;
+    gap: 0.7rem;
+    padding: 0.95rem;
+    border-radius: 12px;
+    border: 1px solid rgba(78, 250, 123, 0.14);
+    background: rgba(10, 18, 13, 0.78);
+  }
+
+  .preview-real-card p,
+  .preview-real-card strong {
+    margin: 0;
+  }
+
+  .preview-real-card p {
+    color: rgba(224, 238, 229, 0.74);
+    font: 500 0.72rem/1.6 'IBM Plex Mono', monospace;
+  }
+
+  .preview-real-card strong {
+    color: #f4fff8;
+    font: 700 1rem/1.25 'Space Grotesk', sans-serif;
+  }
+
+  .preview-real-card-kicker {
+    color: rgba(78, 250, 123, 0.78) !important;
+    font-size: 0.68rem !important;
+    line-height: 1.35;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .preview-real-token-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 0.15rem;
+  }
+
+  .preview-real-token-row span {
+    padding: 0.35rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid rgba(78, 250, 123, 0.14);
+    color: #e4ffef;
+    background: rgba(21, 34, 26, 0.82);
+    font: 500 0.67rem/1 'IBM Plex Mono', monospace;
+  }
+
   .preview-hero-side {
     align-content: start;
   }
@@ -2875,10 +4473,25 @@
       padding: 1rem;
     }
 
+    .file-browser,
     .preview-hero,
     .preview-project-grid,
-    .preview-metric-row {
+    .preview-metric-row,
+    .preview-real-metrics,
+    .preview-real-grid,
+    .preview-real-split,
+    .preview-real-experience-list {
       grid-template-columns: 1fr;
+    }
+
+    .file-browser {
+      grid-template-columns: 1fr;
+    }
+
+    .file-browser-sidebar,
+    .file-browser-preview {
+      border: 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .preview-name-block {
@@ -3399,7 +5012,20 @@
       height: 40px;
     }
 
+    .browser-project-grid,
+    .file-browser-grid,
+    .browser-project-detail-grid {
+      grid-template-columns: 1fr;
+    }
+
     .browser-window {
+      left: 8px !important;
+      top: 18px !important;
+      width: calc(100vw - 16px) !important;
+      height: min(560px, calc(100vh - 110px)) !important;
+    }
+
+    .files-window {
       left: 8px !important;
       top: 18px !important;
       width: calc(100vw - 16px) !important;
@@ -3408,6 +5034,27 @@
 
     .browser-toolbar {
       grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .files-surface,
+    .files-pane {
+      grid-template-columns: 1fr;
+    }
+
+    .files-preview {
+      display: none;
+    }
+
+    .files-list-head,
+    .files-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .files-list-head span:nth-child(2),
+    .files-list-head span:nth-child(3),
+    .files-row-type,
+    .files-row-info {
+      display: none;
     }
 
     .browser-nav:nth-child(2),
