@@ -39,7 +39,17 @@
 
   type ExplorerAction =
     | { kind: 'route'; target: string; label: string }
+    | { kind: 'files'; target: string; label: string }
     | { kind: 'external'; target: string; label: string; targetMode?: '_blank' | '_self' };
+
+  type DesktopShortcut = {
+    id: string;
+    label: string;
+    kind: 'folder' | 'game';
+    accent: string;
+    iconSrc?: string;
+    action: ExplorerAction;
+  };
 
   type ExplorerItem = {
     id: string;
@@ -85,6 +95,16 @@
     minimized: boolean;
   };
 
+  type WindowName = 'browser' | 'files' | 'terminal' | 'notepad';
+
+  type NotepadNote = {
+    id: string;
+    title: string;
+    content: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+
   let portfolio: PortfolioContent = data.portfolio;
   let hero = portfolio.hero;
   let projects = portfolio.projects;
@@ -121,10 +141,21 @@
     { id: 'browser', label: 'Browser', kind: 'chrome' },
     { id: 'files', label: 'Files', kind: 'folder' },
     { id: 'music', label: 'Music', kind: 'music' },
-    { id: 'docs', label: 'Docs', kind: 'word' },
+    { id: 'notepad', label: 'Notepad', kind: 'notepad' },
     { id: 'chat', label: 'Chat', kind: 'chat' },
     { id: 'terminal', label: 'Terminal', kind: 'terminal' }
   ] as const;
+  const notepadStorageKey = 'portfolio-notes-v2';
+  const notepadOwnerKey = 'portfolio-notes-owner-v1';
+  const defaultNotepadTitle = 'personal-blog.md';
+  const defaultNotepadText = `# Personal blog draft
+
+Start writing here.
+
+- What I am building
+- What I am learning
+- What I care about right now
+`;
   const dogImages = [
     'https://placedog.net/640/640?id=11',
     'https://placedog.net/640/640?id=22',
@@ -137,13 +168,95 @@
   const linkedinUrl = 'https://www.linkedin.com/in/omarramadanb91b298/';
   const emailUrl = 'mailto:oramadan2004@gmail.com';
   const resumePdfUrl = '/OmarRamadan_Resume.pdf';
+  const wallpaperUrl = '/Spider-Man3Header.webp';
+  const gameLogoBase = 'https://commons.wikimedia.org/wiki/Special:Redirect/file/';
+  const desktopShortcuts: DesktopShortcut[] = [
+    {
+      id: 'projects',
+      label: 'Projects',
+      kind: 'folder',
+      accent: '#f2cc63',
+      action: { kind: 'files', target: 'featured-work', label: 'Open projects' }
+    },
+    {
+      id: 'omar-stuff',
+      label: 'omar_stuff',
+      kind: 'folder',
+      accent: '#7fc4ff',
+      action: { kind: 'files', target: 'omar-stuff', label: 'Open omar_stuff' }
+    },
+    {
+      id: 'photos',
+      label: 'Photos',
+      kind: 'folder',
+      accent: '#d8b4ff',
+      action: { kind: 'files', target: 'photos', label: 'Open photos' }
+    },
+    {
+      id: 'god-of-war',
+      label: 'God of War',
+      kind: 'game',
+      accent: '#d95656',
+      iconSrc: `${gameLogoBase}God%20of%20War%20Logo.png`,
+      action: { kind: 'external', target: 'https://store.steampowered.com/app/1593500/God_of_War/', label: 'Open God of War' }
+    },
+    {
+      id: 'overwatch',
+      label: 'Overwatch',
+      kind: 'game',
+      accent: '#f5a13a',
+      iconSrc: `${gameLogoBase}Overwatch%20circle%20logo.svg`,
+      action: { kind: 'external', target: 'https://overwatch.blizzard.com/', label: 'Open Overwatch' }
+    },
+    {
+      id: 'cyberpunk-2077',
+      label: 'Cyberpunk 2077',
+      kind: 'game',
+      accent: '#f5d238',
+      iconSrc: `${gameLogoBase}Cyberpunk%202077%20logo%20turquoise-white.svg`,
+      action: { kind: 'external', target: 'https://www.cyberpunk.net/us/en/', label: 'Open Cyberpunk 2077' }
+    },
+    {
+      id: 'firewatch',
+      label: 'Firewatch',
+      kind: 'game',
+      accent: '#f38a3f',
+      iconSrc: `${gameLogoBase}Firewatch%20Logo.png`,
+      action: { kind: 'external', target: 'https://store.steampowered.com/app/383870/Firewatch/', label: 'Open Firewatch' }
+    },
+    {
+      id: 'subnautica',
+      label: 'Subnautica',
+      kind: 'game',
+      accent: '#4ac7ff',
+      iconSrc: `${gameLogoBase}Subnautica_logo.png`,
+      action: { kind: 'external', target: 'https://store.steampowered.com/app/264710/Subnautica/', label: 'Open Subnautica' }
+    },
+    {
+      id: 'the-finals',
+      label: 'THE FINALS',
+      kind: 'game',
+      accent: '#f6f6f6',
+      iconSrc: `${gameLogoBase}The%20Finals%20logo%20stacked.svg`,
+      action: { kind: 'external', target: 'https://www.reachthefinals.com/', label: 'Open THE FINALS' }
+    },
+    {
+      id: 'bo3',
+      label: 'BO3',
+      kind: 'game',
+      accent: '#ff7f50',
+      iconSrc: `${gameLogoBase}Call%20of%20Duty%20Black%20Ops%20III.png`,
+      action: { kind: 'external', target: 'https://store.steampowered.com/app/311210/Call_of_Duty_Black_Ops_III/', label: 'Open BO3' }
+    }
+  ];
 
   let history: HistoryEntry[] = [];
   let command = '';
   let nextId = 1;
   let terminalOpen = false;
   let browserOpen = false;
-  let taskbarVisible = false;
+  let notepadOpen = false;
+  let selectedDesktopShortcutId = '';
   let browserAddress = 'google.local';
   let browserTabs: BrowserTab[] = [];
   let activeBrowserTabId = 1;
@@ -151,7 +264,17 @@
   let browserWarning = '';
   let browserWarningTimer: ReturnType<typeof setTimeout> | null = null;
   let browserHomeQuery = '';
+  let notepadNotes: NotepadNote[] = [createDefaultNotepadNote()];
+  let activeNotepadNoteId = notepadNotes[0].id;
+  let activeNotepadNote: NotepadNote | undefined = notepadNotes[0];
+  let activeNotepadSummary = '0 words';
+  let sortedNotepadNotes: NotepadNote[] = [];
+  let notepadCanEdit = false;
+  let notepadNotesOpen = false;
+  let notepadOwnerConfigured = false;
+  let notepadStatusMessage = 'Notes save automatically in this browser.';
   let inputEl: HTMLInputElement;
+  let notepadEditorEl: HTMLTextAreaElement;
   let historyEl: HTMLDivElement;
   let activeBrowserTab: BrowserTab | undefined;
   let activeBrowserPage: BrowserPage | undefined;
@@ -181,20 +304,29 @@
     maximized: false,
     minimized: false
   };
+  let notepadWindow: WindowBox = {
+    x: 248,
+    y: 96,
+    width: 760,
+    height: 560,
+    maximized: false,
+    minimized: false
+  };
   let browserRestoreBox: WindowBox | null = null;
   let terminalRestoreBox: WindowBox | null = null;
   let filesRestoreBox: WindowBox | null = null;
+  let notepadRestoreBox: WindowBox | null = null;
   let activeDrag:
     | {
         kind: 'move' | 'resize';
-        window: 'browser' | 'terminal' | 'files';
+        window: WindowName;
         edge?: 'left' | 'right' | 'bottom' | 'bottom-right' | 'bottom-left';
         startX: number;
         startY: number;
         startBox: WindowBox;
       }
     | null = null;
-  let windowOrder: Array<'browser' | 'files' | 'terminal'> = ['browser', 'files', 'terminal'];
+  let windowOrder: WindowName[] = ['browser', 'files', 'notepad', 'terminal'];
 
   $: activeBrowserTab = browserTabs.find((tab) => tab.id === activeBrowserTabId);
   $: activeBrowserPage = activeBrowserTab ? activeBrowserTab.history[activeBrowserTab.historyIndex] : undefined;
@@ -202,12 +334,21 @@
   $: canGoForward = !!activeBrowserTab && activeBrowserTab.historyIndex < activeBrowserTab.history.length - 1;
   $: browserZIndex = windowOrder.indexOf('browser') === -1 ? 26 : 26 + windowOrder.indexOf('browser');
   $: filesZIndex = windowOrder.indexOf('files') === -1 ? 26 : 26 + windowOrder.indexOf('files');
+  $: notepadZIndex = windowOrder.indexOf('notepad') === -1 ? 26 : 26 + windowOrder.indexOf('notepad');
   $: terminalZIndex = windowOrder.indexOf('terminal') === -1 ? 26 : 26 + windowOrder.indexOf('terminal');
   $: explorerSelection = getExplorerSelectionFromPath(selectedExplorerPath);
+  $: activeNotepadNote = notepadNotes.find((note) => note.id === activeNotepadNoteId) ?? notepadNotes[0];
+  $: activeNotepadSummary = activeNotepadNote
+    ? `${activeNotepadNote.content.trim() ? activeNotepadNote.content.trim().split(/\s+/).length : 0} words`
+    : '0 words';
+  $: sortedNotepadNotes = [...notepadNotes].sort(
+    (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
+  );
 
   onMount(() => {
     resetHistory();
     browserTabs = [createBrowserTab(1, createGoogleHomePage())];
+    loadNotepadDraft();
     fitWindowsToViewport();
   });
 
@@ -261,6 +402,233 @@
   function closeBrowser() {
     browserOpen = false;
     clearBrowserWarning();
+  }
+
+  async function openNotepad() {
+    notepadOpen = true;
+    focusWindow('notepad');
+    await tick();
+    if (notepadCanEdit) notepadEditorEl?.focus();
+  }
+
+  function closeNotepad() {
+    persistNotepadNotes();
+    notepadOpen = false;
+  }
+
+  function createDefaultNotepadNote(): NotepadNote {
+    const now = new Date().toISOString();
+    return {
+      id: 'personal-blog',
+      title: defaultNotepadTitle,
+      content: defaultNotepadText,
+      createdAt: now,
+      updatedAt: now
+    };
+  }
+
+  function loadNotepadDraft() {
+    if (typeof window === 'undefined') return;
+
+    const saved = window.localStorage.getItem(notepadStorageKey);
+    const ownerKey = window.localStorage.getItem(notepadOwnerKey);
+    notepadOwnerConfigured = Boolean(ownerKey);
+    notepadCanEdit = isLocalNotepadEditor();
+
+    if (!saved) {
+      notepadNotes = [createDefaultNotepadNote()];
+      activeNotepadNoteId = notepadNotes[0].id;
+      persistNotepadNotes();
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(saved) as {
+        notes?: NotepadNote[];
+        activeId?: string;
+      };
+      const notes = Array.isArray(parsed.notes) && parsed.notes.length ? parsed.notes : [createDefaultNotepadNote()];
+      notepadNotes = notes.map((note) => ({
+        id: note.id,
+        title: note.title?.trim() || 'untitled-note.md',
+        content: typeof note.content === 'string' ? note.content : '',
+        createdAt: note.createdAt || new Date().toISOString(),
+        updatedAt: note.updatedAt || note.createdAt || new Date().toISOString()
+      }));
+      activeNotepadNoteId = notepadNotes.some((note) => note.id === parsed.activeId)
+        ? (parsed.activeId as string)
+        : notepadNotes[0].id;
+    } catch {
+      notepadNotes = [createDefaultNotepadNote()];
+      activeNotepadNoteId = notepadNotes[0].id;
+    }
+  }
+
+  function isLocalNotepadEditor() {
+    if (typeof window === 'undefined') return false;
+    return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+  }
+
+  function persistNotepadNotes() {
+    if (typeof window === 'undefined') return;
+
+    window.localStorage.setItem(
+      notepadStorageKey,
+      JSON.stringify({
+        notes: notepadNotes,
+        activeId: activeNotepadNoteId
+      })
+    );
+  }
+
+  function setNotepadStatus(message: string) {
+    notepadStatusMessage = message;
+  }
+
+  function excerptNote(content: string) {
+    const normalized = content.replace(/\s+/g, ' ').trim();
+    if (!normalized) return 'Empty note';
+    return normalized.length > 96 ? `${normalized.slice(0, 96)}...` : normalized;
+  }
+
+  function updateActiveNotepadTitle(value: string) {
+    if (!activeNotepadNote || !notepadCanEdit) return;
+    updateNotepadNote(activeNotepadNote.id, { title: value });
+  }
+
+  function finishActiveNotepadTitleEdit(value: string) {
+    if (!activeNotepadNote || !notepadCanEdit) return;
+    const nextTitle = value.trim() || 'untitled-note.md';
+    if (nextTitle !== activeNotepadNote.title) {
+      updateNotepadNote(activeNotepadNote.id, { title: nextTitle });
+    }
+  }
+
+  function updateActiveNotepadContent(value: string) {
+    if (!activeNotepadNote || !notepadCanEdit) return;
+    updateNotepadNote(activeNotepadNote.id, { content: value });
+  }
+
+  function updateNotepadNote(id: string, updates: Partial<Pick<NotepadNote, 'title' | 'content'>>) {
+    const timestamp = new Date().toISOString();
+    notepadNotes = notepadNotes.map((note) =>
+      note.id === id
+        ? {
+            ...note,
+            ...updates,
+            updatedAt: timestamp
+          }
+        : note
+    );
+    persistNotepadNotes();
+    setNotepadStatus(`Autosaved ${formatSavedAt(timestamp)}`);
+  }
+
+  function createNoteId() {
+    return `note-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  async function createNotepadNote() {
+    if (!notepadCanEdit) {
+      setNotepadStatus('Public visitors can view notes only.');
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const note: NotepadNote = {
+      id: createNoteId(),
+      title: `note-${notepadNotes.length + 1}.md`,
+      content: '',
+      createdAt: timestamp,
+      updatedAt: timestamp
+    };
+    notepadNotes = [note, ...notepadNotes];
+    activeNotepadNoteId = note.id;
+    notepadNotesOpen = false;
+    persistNotepadNotes();
+    setNotepadStatus('New note created locally.');
+    await tick();
+    notepadEditorEl?.focus();
+  }
+
+  function selectNotepadNote(id: string) {
+    const note = notepadNotes.find((item) => item.id === id);
+    activeNotepadNoteId = id;
+    notepadNotesOpen = false;
+    persistNotepadNotes();
+    setNotepadStatus(note?.updatedAt ? `Opened note from ${formatSavedAt(note.updatedAt)}` : 'Opened note.');
+  }
+
+  function removeActiveNotepadNote() {
+    if (!notepadCanEdit || notepadNotes.length <= 1 || !activeNotepadNote) {
+      setNotepadStatus(notepadNotes.length <= 1 ? 'Keep at least one note.' : 'Public visitors can view notes only.');
+      return;
+    }
+
+    const remaining = notepadNotes.filter((note) => note.id !== activeNotepadNote.id);
+    notepadNotes = remaining;
+    activeNotepadNoteId = remaining[0].id;
+    persistNotepadNotes();
+    setNotepadStatus('Note deleted locally.');
+  }
+
+  function unlockNotepadEditing() {
+    if (typeof window === 'undefined') return;
+
+    if (isLocalNotepadEditor()) {
+      notepadCanEdit = true;
+      setNotepadStatus('Editing enabled on localhost.');
+      tick().then(() => notepadEditorEl?.focus());
+      return;
+    }
+
+    const storedOwnerKey = window.localStorage.getItem(notepadOwnerKey);
+
+    if (!storedOwnerKey) {
+      const firstEntry = window.prompt('Create a local owner passcode for editing this notepad on this browser.');
+      if (!firstEntry) return;
+      const confirmation = window.prompt('Confirm your new local owner passcode.');
+      if (confirmation !== firstEntry) {
+        setNotepadStatus('Owner passcode confirmation did not match.');
+        return;
+      }
+      window.localStorage.setItem(notepadOwnerKey, firstEntry);
+      notepadOwnerConfigured = true;
+      notepadCanEdit = true;
+      setNotepadStatus('Owner mode enabled on this browser.');
+      tick().then(() => notepadEditorEl?.focus());
+      return;
+    }
+
+    const attempt = window.prompt('Enter your local owner passcode to enable editing.');
+    if (!attempt) return;
+
+    if (attempt === storedOwnerKey) {
+      notepadCanEdit = true;
+      setNotepadStatus('Editing unlocked for this browser session.');
+      tick().then(() => notepadEditorEl?.focus());
+      return;
+    }
+
+    setNotepadStatus('Passcode did not match. Notes remain view-only.');
+  }
+
+  function lockNotepadEditing() {
+    notepadCanEdit = false;
+    setNotepadStatus('Notepad locked to view-only mode.');
+  }
+
+  function formatSavedAt(value: string) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'recently';
+
+    return new Intl.DateTimeFormat('en-CA', {
+      hour: 'numeric',
+      minute: '2-digit',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'America/Toronto'
+    }).format(date);
   }
 
   function createGoogleHomePage(): BrowserPage {
@@ -572,17 +940,17 @@
           children: topProjects
         },
         {
-          id: 'about',
-          path: 'about',
-          label: 'About',
+          id: 'omar-stuff',
+          path: 'omar-stuff',
+          label: 'omar_stuff',
           kind: 'folder',
-          description: 'Resume, contact routes, and current focus files.',
-          badge: 'Starter folder',
+          description: 'Resume, links, and quick context files.',
+          badge: 'Pinned folder',
           meta: ['Identity', 'Links'],
           children: [
             {
               id: 'resume',
-              path: 'about/resume-pdf',
+              path: 'omar-stuff/resume-pdf',
               label: 'resume.pdf',
               kind: 'document',
               description: 'Direct access to the latest resume PDF.',
@@ -593,7 +961,7 @@
             },
             {
               id: 'now',
-              path: 'about/now-txt',
+              path: 'omar-stuff/now-txt',
               label: 'now.txt',
               kind: 'note',
               description: about.focus,
@@ -603,14 +971,55 @@
             },
             {
               id: 'contact',
-              path: 'about/contact-card',
-              label: 'contact.card',
+              path: 'omar-stuff/contact-card',
+              label: 'links.card',
               kind: 'contact',
               description: about.contactNote,
               badge: 'Reach out',
               meta: ['Email', 'GitHub', 'LinkedIn'],
               tags: ['Contact', 'Links'],
               action: { kind: 'external', target: emailUrl, label: 'Send email', targetMode: '_self' }
+            }
+          ]
+        },
+        {
+          id: 'photos',
+          path: 'photos',
+          label: 'Photos',
+          kind: 'folder',
+          description: 'Desktop-inspired snapshots, moods, and visual references.',
+          badge: 'Pinned folder',
+          meta: ['Personal', 'Visuals'],
+          children: [
+            {
+              id: 'wallpaper',
+              path: 'photos/spiderman-3-poster',
+              label: 'spiderman_3_wallpaper.jpg',
+              kind: 'document',
+              description: 'The rainy black-suit Spider-Man poster setting the desktop mood.',
+              badge: 'Wallpaper',
+              meta: ['Spider-Man 3', 'Favorite movie'],
+              tags: ['Wallpaper', 'Spider-Man']
+            },
+            {
+              id: 'games-folder-note',
+              path: 'photos/game-night.txt',
+              label: 'game_night.txt',
+              kind: 'note',
+              description: 'Fast reflexes, moody worlds, and exploration-heavy favorites.',
+              badge: 'Note',
+              meta: ['Overwatch', 'Cyberpunk 2077', 'Subnautica'],
+              tags: ['Games', 'Favorites']
+            },
+            {
+              id: 'rain-note',
+              path: 'photos/rain-at-2am.txt',
+              label: 'rain_at_2am.txt',
+              kind: 'note',
+              description: 'A quiet folder for the late-night aesthetic running through the desktop.',
+              badge: 'Mood file',
+              meta: ['Rain', 'Night drive', 'Neon'],
+              tags: ['Mood', 'Desktop']
             }
           ]
         },
@@ -745,7 +1154,21 @@
       openBrowserPage(action.target);
       return;
     }
+    if (action.kind === 'files') {
+      openFiles(action.target);
+      focusWindow('files');
+      return;
+    }
     openExternalBrowserLink(action.target, action.targetMode ?? '_blank');
+  }
+
+  function selectDesktopShortcut(shortcut: DesktopShortcut) {
+    selectedDesktopShortcutId = shortcut.id;
+  }
+
+  function activateDesktopShortcut(shortcut: DesktopShortcut) {
+    selectedDesktopShortcutId = shortcut.id;
+    runExplorerAction(shortcut.action);
   }
 
   function browserBack() {
@@ -821,7 +1244,7 @@
     }, 5000);
   }
 
-  function focusWindow(name: 'browser' | 'terminal' | 'files') {
+  function focusWindow(name: WindowName) {
     windowOrder = [...windowOrder.filter((item) => item !== name), name];
   }
 
@@ -852,13 +1275,27 @@
       x: Math.max(8, Math.min(terminalWindow.x, maxWidth - terminalWindow.width - 8)),
       y: Math.max(8, Math.min(terminalWindow.y, maxHeight - terminalWindow.height - 76))
     };
+
+    notepadWindow = {
+      ...notepadWindow,
+      width: Math.min(notepadWindow.width, maxWidth - 24),
+      height: Math.min(notepadWindow.height, maxHeight - 110),
+      x: Math.max(8, Math.min(notepadWindow.x, maxWidth - notepadWindow.width - 8)),
+      y: Math.max(8, Math.min(notepadWindow.y, maxHeight - notepadWindow.height - 76))
+    };
   }
 
-  function startMove(windowName: 'browser' | 'terminal' | 'files', event: MouseEvent) {
+  function startMove(windowName: WindowName, event: MouseEvent) {
     const target = event.target as HTMLElement | null;
-    if (target?.closest('button, input')) return;
+    if (target?.closest('button, input, textarea')) return;
     const box =
-      windowName === 'browser' ? browserWindow : windowName === 'files' ? filesWindow : terminalWindow;
+      windowName === 'browser'
+        ? browserWindow
+        : windowName === 'files'
+          ? filesWindow
+          : windowName === 'notepad'
+            ? notepadWindow
+            : terminalWindow;
     if (box.maximized) return;
     activeDrag = {
       kind: 'move',
@@ -870,13 +1307,19 @@
   }
 
   function startResize(
-    windowName: 'browser' | 'terminal' | 'files',
+    windowName: WindowName,
     edge: 'left' | 'right' | 'bottom' | 'bottom-right' | 'bottom-left',
     event: MouseEvent
   ) {
     event.stopPropagation();
     const box =
-      windowName === 'browser' ? browserWindow : windowName === 'files' ? filesWindow : terminalWindow;
+      windowName === 'browser'
+        ? browserWindow
+        : windowName === 'files'
+          ? filesWindow
+          : windowName === 'notepad'
+            ? notepadWindow
+            : terminalWindow;
     if (box.maximized) return;
     activeDrag = {
       kind: 'resize',
@@ -888,11 +1331,13 @@
     };
   }
 
-  function updateWindowBox(name: 'browser' | 'terminal' | 'files', nextBox: WindowBox) {
+  function updateWindowBox(name: WindowName, nextBox: WindowBox) {
     if (name === 'browser') {
       browserWindow = nextBox;
     } else if (name === 'files') {
       filesWindow = nextBox;
+    } else if (name === 'notepad') {
+      notepadWindow = nextBox;
     } else {
       terminalWindow = nextBox;
     }
@@ -908,7 +1353,7 @@
     return { ...box, x, y, width, height };
   }
 
-  function toggleMaximize(windowName: 'browser' | 'terminal' | 'files') {
+  function toggleMaximize(windowName: WindowName) {
     if (windowName === 'browser') {
       if (!browserWindow.maximized) {
         browserRestoreBox = { ...browserWindow };
@@ -927,6 +1372,15 @@
           ? { ...filesRestoreBox, maximized: false, minimized: false }
           : { ...filesWindow, maximized: false };
       }
+    } else if (windowName === 'notepad') {
+      if (!notepadWindow.maximized) {
+        notepadRestoreBox = { ...notepadWindow };
+        notepadWindow = { ...notepadWindow, maximized: true, minimized: false };
+      } else {
+        notepadWindow = notepadRestoreBox
+          ? { ...notepadRestoreBox, maximized: false, minimized: false }
+          : { ...notepadWindow, maximized: false };
+      }
     } else {
       if (!terminalWindow.maximized) {
         terminalRestoreBox = { ...terminalWindow };
@@ -939,9 +1393,11 @@
     }
   }
 
-  function toggleMinimize(windowName: 'browser' | 'terminal' | 'files') {
-    const compactWidth = windowName === 'browser' ? 620 : windowName === 'files' ? 640 : 760;
-    const compactHeight = windowName === 'browser' ? 360 : windowName === 'files' ? 380 : 320;
+  function toggleMinimize(windowName: WindowName) {
+    const compactWidth =
+      windowName === 'browser' ? 620 : windowName === 'files' ? 640 : windowName === 'notepad' ? 620 : 760;
+    const compactHeight =
+      windowName === 'browser' ? 360 : windowName === 'files' ? 380 : windowName === 'notepad' ? 340 : 320;
 
     if (windowName === 'browser') {
       if (!browserWindow.minimized) {
@@ -980,6 +1436,25 @@
         filesWindow = filesRestoreBox
           ? { ...filesRestoreBox, maximized: false, minimized: false }
           : { ...filesWindow, minimized: false };
+      }
+    } else if (windowName === 'notepad') {
+      if (!notepadWindow.minimized) {
+        notepadRestoreBox = { ...notepadWindow };
+        notepadWindow = clampWindowBox(
+          {
+            ...notepadWindow,
+            width: compactWidth,
+            height: compactHeight,
+            maximized: false,
+            minimized: true
+          },
+          560,
+          280
+        );
+      } else {
+        notepadWindow = notepadRestoreBox
+          ? { ...notepadRestoreBox, maximized: false, minimized: false }
+          : { ...notepadWindow, minimized: false };
       }
     } else {
       if (!terminalWindow.minimized) {
@@ -1195,27 +1670,40 @@
 
 <main
   class="desktop"
-  on:mousemove={(event) => {
-    taskbarVisible = event.clientY > window.innerHeight - 120;
-  }}
-  on:mouseleave={() => {
-    if (!terminalOpen) taskbarVisible = false;
+  on:click={() => {
+    selectedDesktopShortcutId = '';
   }}
 >
-  <div class="desktop-wallpaper">
+  <div class="desktop-wallpaper" style={`background-image: linear-gradient(180deg, rgba(2, 4, 8, 0.46), rgba(2, 4, 8, 0.84)), url('${wallpaperUrl}')`}>
     <div class="wallpaper-glow wallpaper-glow-left"></div>
     <div class="wallpaper-glow wallpaper-glow-right"></div>
-    <div class="wallpaper-lines" aria-hidden="true"></div>
   </div>
 
-  <div class="hover-zone" on:mouseenter={() => (taskbarVisible = true)}></div>
+  <section class="desktop-shortcuts" aria-label="Desktop shortcuts">
+    {#each desktopShortcuts as shortcut}
+      <button
+        type="button"
+        class="desktop-shortcut"
+        class:selected={selectedDesktopShortcutId === shortcut.id}
+        on:click|stopPropagation={() => selectDesktopShortcut(shortcut)}
+        on:dblclick|stopPropagation={() => activateDesktopShortcut(shortcut)}
+        aria-label={shortcut.action.label}
+      >
+        <span class="desktop-shortcut-icon" style={`--desktop-accent:${shortcut.accent};`}>
+          {#if shortcut.kind === 'folder'}
+            <span class="desktop-folder-icon" aria-hidden="true"></span>
+          {:else if shortcut.iconSrc}
+            <span class="desktop-game-icon" aria-hidden="true">
+              <img src={shortcut.iconSrc} alt="" loading="lazy" />
+            </span>
+          {/if}
+        </span>
+        <span class="desktop-shortcut-label">{shortcut.label}</span>
+      </button>
+    {/each}
+  </section>
 
-  <nav
-    class="taskbar"
-    class:visible={taskbarVisible || terminalOpen}
-    on:mouseenter={() => (taskbarVisible = true)}
-    aria-label="Desktop taskbar"
-  >
+  <nav class="taskbar visible" aria-label="Desktop taskbar">
     <div class="taskbar-inner">
       {#each taskbarApps as app}
         <button
@@ -1224,7 +1712,8 @@
           class:active={
             (app.id === 'terminal' && terminalOpen) ||
             (app.id === 'browser' && browserOpen) ||
-            (app.id === 'files' && filesOpen)
+            (app.id === 'files' && filesOpen) ||
+            (app.id === 'notepad' && notepadOpen)
           }
           aria-label={app.label}
           on:click={() => {
@@ -1236,6 +1725,9 @@
             }
             if (app.id === 'files') {
               openFiles('root');
+            }
+            if (app.id === 'notepad') {
+              openNotepad();
             }
           }}
         >
@@ -1378,32 +1870,30 @@
                   <span>Portfolio</span>
                 </button>
                 <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('github')}>
-                  <span class="browser-shortcut-icon social-icon github-icon"></span>
+                  <span class="browser-shortcut-icon social-icon github-icon">
+                    <img src="https://cdn.simpleicons.org/github/FFFFFF" alt="" loading="lazy" />
+                  </span>
                   <span>GitHub</span>
                 </button>
                 <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('linkedin')}>
-                  <span class="browser-shortcut-icon social-icon linkedin-icon"></span>
+                  <span class="browser-shortcut-icon social-icon linkedin-icon">
+                    <span class="linkedin-mark" aria-hidden="true">
+                      <span>in</span>
+                    </span>
+                  </span>
                   <span>LinkedIn</span>
                 </button>
                 <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('resume')}>
-                  <span class="browser-shortcut-icon social-icon resume-icon"></span>
+                  <span class="browser-shortcut-icon resume-icon">
+                    <span class="resume-sheet" aria-hidden="true"></span>
+                  </span>
                   <span>Resume</span>
                 </button>
                 <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('email')}>
-                  <span class="browser-shortcut-icon social-icon email-icon"></span>
+                  <span class="browser-shortcut-icon social-icon email-icon">
+                    <span class="gmail-mark" aria-hidden="true"></span>
+                  </span>
                   <span>Email</span>
-                </button>
-                <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('portfolio.local/projects')}>
-                  <span class="browser-shortcut-icon"></span>
-                  <span>Projects</span>
-                </button>
-                <button type="button" class="browser-shortcut" on:click={() => openBrowserPage('portfolio.local/terminal')}>
-                  <span class="browser-shortcut-icon"></span>
-                  <span>Terminal</span>
-                </button>
-                <button type="button" class="browser-shortcut" on:click={() => navigateBrowser('dogs')}>
-                  <span class="browser-shortcut-icon"></span>
-                  <span>Dogs</span>
                 </button>
               </div>
             </div>
@@ -1467,7 +1957,7 @@
                 {#if explorerSelection.item.path === 'root'}
                   <section class="file-browser-banner">
                     <p class="file-browser-label">Suggested start</p>
-                    <strong>Open `Featured Work`, then move into `About` or `Experience`.</strong>
+                    <strong>Open `Featured Work`, then move into `omar_stuff` or `Experience`.</strong>
                     <span>This explorer is arranged to tell a story quickly: strongest builds first, context second, supporting proof after that.</span>
                   </section>
                 {/if}
@@ -2320,6 +2810,164 @@
       {/if}
     </section>
   {/if}
+
+  {#if notepadOpen}
+    <section
+      class="notepad-window"
+      class:maximized={notepadWindow.maximized}
+      class:minimized={notepadWindow.minimized}
+      aria-label="Personal blog notepad"
+      on:mousedown={() => focusWindow('notepad')}
+      style={
+        notepadWindow.maximized
+          ? `z-index:${notepadZIndex};`
+          : `left:${notepadWindow.x}px;top:${notepadWindow.y}px;width:${notepadWindow.width}px;height:${notepadWindow.height}px;z-index:${notepadZIndex};`
+      }
+    >
+      <div class="notepad-surface">
+        <section class="notepad-main">
+          <div class="notepad-toolbar">
+            <label class="notepad-field">
+              <span>File name</span>
+              <input
+                value={activeNotepadNote?.title ?? ''}
+                type="text"
+                maxlength="80"
+                spellcheck="false"
+                readonly={!notepadCanEdit}
+                on:input={(event) => updateActiveNotepadTitle((event.currentTarget as HTMLInputElement).value)}
+                on:blur={(event) => finishActiveNotepadTitleEdit((event.currentTarget as HTMLInputElement).value)}
+              />
+            </label>
+
+            <div class="notepad-meta">
+              <strong>{activeNotepadNote?.title ?? defaultNotepadTitle}</strong>
+              <span>{activeNotepadNote ? `Updated ${formatSavedAt(activeNotepadNote.updatedAt)}` : 'No note selected'}</span>
+            </div>
+
+            <div class="notepad-toolbar-actions">
+              {#if notepadCanEdit}
+                <button type="button" class="notepad-side-action" on:click={createNotepadNote}>New note</button>
+              {:else if notepadOwnerConfigured}
+                <button type="button" class="notepad-side-action" on:click={unlockNotepadEditing}>Unlock</button>
+              {:else}
+                <button type="button" class="notepad-side-action" on:click={unlockNotepadEditing}>Owner</button>
+              {/if}
+              <button
+                type="button"
+                class="notepad-icon-button"
+                aria-label="Open saved notes"
+                aria-expanded={notepadNotesOpen}
+                on:click={() => (notepadNotesOpen = !notepadNotesOpen)}
+              >
+                <span></span>
+                <span></span>
+                <span></span>
+              </button>
+            </div>
+          </div>
+
+          <label class="sr-only" for="notepad-editor">Write your personal blog draft</label>
+          <textarea
+            id="notepad-editor"
+            class="notepad-editor"
+            bind:this={notepadEditorEl}
+            value={activeNotepadNote?.content ?? ''}
+            spellcheck="true"
+            readonly={!notepadCanEdit}
+            on:input={(event) => updateActiveNotepadContent((event.currentTarget as HTMLTextAreaElement).value)}
+          ></textarea>
+
+          <div class="notepad-status">
+            <span>{activeNotepadSummary}</span>
+            <span>{activeNotepadNote?.content.length ?? 0} characters</span>
+            <span>{notepadStatusMessage}</span>
+            {#if notepadCanEdit}
+              <button type="button" class="notepad-inline-action" on:click={removeActiveNotepadNote}>Delete note</button>
+            {/if}
+          </div>
+        </section>
+
+        <aside class="notepad-sidebar" class:open={notepadNotesOpen} aria-label="Saved notes">
+          <div class="notepad-sidebar-head">
+            <div>
+              <p>Saved notes</p>
+              <strong>{notepadNotes.length} local note{notepadNotes.length === 1 ? '' : 's'}</strong>
+            </div>
+            <button type="button" class="notepad-icon-button close" aria-label="Close saved notes" on:click={() => (notepadNotesOpen = false)}>
+              <span></span>
+              <span></span>
+            </button>
+          </div>
+
+          <div class="notepad-note-list">
+            {#each sortedNotepadNotes as note}
+              <button
+                type="button"
+                class="notepad-note-card"
+                class:selected={note.id === activeNotepadNoteId}
+                on:click={() => selectNotepadNote(note.id)}
+              >
+                <strong>{note.title}</strong>
+                <span>{formatSavedAt(note.updatedAt)}</span>
+                <p>{excerptNote(note.content)}</p>
+              </button>
+            {/each}
+          </div>
+
+          <div class="notepad-sidebar-footer">
+            {#if notepadCanEdit}
+              <button type="button" class="notepad-side-action dark" on:click={lockNotepadEditing}>Lock editing</button>
+            {:else if notepadOwnerConfigured}
+              <button type="button" class="notepad-side-action dark" on:click={unlockNotepadEditing}>Unlock editing</button>
+            {:else}
+              <button type="button" class="notepad-side-action dark" on:click={unlockNotepadEditing}>Set owner passcode</button>
+            {/if}
+
+            <span>{notepadCanEdit ? 'Editable here' : 'View-only'}</span>
+          </div>
+        </aside>
+      </div>
+
+      <header
+        class="window-bar notepad-bar"
+        style="background:#2c2b2b;background-image:none;"
+        on:mousedown={(event) => startMove('notepad', event)}
+      >
+        <span class="notepad-chrome-fill" aria-hidden="true"></span>
+        <div class="notepad-title-spacer" aria-hidden="true"></div>
+
+        <div class="window-controls notepad-controls">
+          <button
+            type="button"
+            class="control-minimize"
+            aria-label="Minimize notepad"
+            on:click={() => toggleMinimize('notepad')}
+          ></button>
+          <button
+            type="button"
+            class="control-maximize"
+            aria-label="Maximize notepad"
+            on:click={() => toggleMaximize('notepad')}
+          ></button>
+          <button
+            type="button"
+            class="control-close"
+            aria-label="Close notepad"
+            on:click={closeNotepad}
+          ></button>
+        </div>
+      </header>
+
+      {#if !notepadWindow.maximized}
+        <button type="button" class="resize-handle left" aria-label="Resize notepad left" on:mousedown={(event) => startResize('notepad', 'left', event)}></button>
+        <button type="button" class="resize-handle right" aria-label="Resize notepad right" on:mousedown={(event) => startResize('notepad', 'right', event)}></button>
+        <button type="button" class="resize-handle bottom" aria-label="Resize notepad bottom" on:mousedown={(event) => startResize('notepad', 'bottom', event)}></button>
+        <button type="button" class="resize-handle bottom-right" aria-label="Resize notepad bottom right" on:mousedown={(event) => startResize('notepad', 'bottom-right', event)}></button>
+        <button type="button" class="resize-handle bottom-left" aria-label="Resize notepad bottom left" on:mousedown={(event) => startResize('notepad', 'bottom-left', event)}></button>
+      {/if}
+    </section>
+  {/if}
 </main>
 
 <style>
@@ -2334,10 +2982,10 @@
   .desktop-wallpaper {
     position: absolute;
     inset: 0;
-    background:
-      radial-gradient(circle at 18% 22%, rgba(31, 82, 136, 0.32), transparent 28%),
-      radial-gradient(circle at 82% 12%, rgba(92, 255, 151, 0.1), transparent 22%),
-      linear-gradient(180deg, #08110d 0%, #040705 100%);
+    background-position: center 22%;
+    background-size: cover;
+    background-repeat: no-repeat;
+    filter: saturate(0.88);
   }
 
   .wallpaper-glow {
@@ -2351,34 +2999,133 @@
   }
 
   .wallpaper-glow-left {
-    left: -8vw;
-    top: -10vw;
-    background: #174c8b;
+    left: -10vw;
+    top: 6vh;
+    background: #31567f;
   }
 
   .wallpaper-glow-right {
-    right: -10vw;
-    top: -8vw;
-    background: #0f6c4f;
+    right: -8vw;
+    bottom: -8vw;
+    background: #6f8597;
   }
 
-  .wallpaper-lines {
+  .desktop-shortcuts {
+    position: relative;
+    z-index: 12;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(92px, 110px));
+    gap: 1rem 1.35rem;
+    align-content: start;
+    width: min(260px, calc(100vw - 1.5rem));
+    padding: 1.6rem 1rem 8rem 1.1rem;
+  }
+
+  .desktop-shortcut {
+    display: grid;
+    justify-items: center;
+    gap: 0.55rem;
+    min-height: 110px;
+    padding: 0.55rem 0.35rem;
+    border-radius: 16px;
+    cursor: default;
+    transition:
+      background-color 0.18s ease,
+      transform 0.18s ease;
+  }
+
+  .desktop-shortcut:hover,
+  .desktop-shortcut:focus-visible,
+  .desktop-shortcut.selected {
+    background: rgba(116, 158, 212, 0.16);
+  }
+
+  .desktop-shortcut.selected {
+    box-shadow:
+      inset 0 0 0 1px rgba(163, 205, 255, 0.22),
+      0 12px 24px rgba(0, 0, 0, 0.18);
+  }
+
+  .desktop-shortcut:focus-visible {
+    outline: 1px solid rgba(201, 224, 255, 0.56);
+    outline-offset: 0;
+  }
+
+  .desktop-shortcut-icon {
+    --desktop-accent: #f2cc63;
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+  }
+
+  .desktop-folder-icon {
+    position: relative;
+    width: 58px;
+    height: 44px;
+    border-radius: 10px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--desktop-accent) 90%, white) 0 36%, var(--desktop-accent) 36% 100%);
+    box-shadow:
+      0 12px 20px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  }
+
+  .desktop-folder-icon::before {
+    content: '';
     position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 44px 44px;
-    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 85%);
+    left: 4px;
+    top: -7px;
+    width: 24px;
+    height: 12px;
+    border-radius: 8px 8px 0 0;
+    background: color-mix(in srgb, var(--desktop-accent) 78%, white);
   }
 
-  .hover-zone {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 120px;
-    z-index: 15;
+  .desktop-folder-icon::after {
+    content: '';
+    position: absolute;
+    inset: 7px 9px auto;
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .desktop-game-icon {
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    padding: 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 20px;
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 58%),
+      rgba(10, 15, 22, 0.72);
+    box-shadow:
+      0 14px 26px rgba(0, 0, 0, 0.24),
+      inset 0 0 0 1px color-mix(in srgb, var(--desktop-accent) 42%, transparent);
+    backdrop-filter: blur(12px);
+  }
+
+  .desktop-game-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.36));
+  }
+
+  .desktop-shortcut-label {
+    max-width: 96px;
+    padding: 0.12rem 0.45rem;
+    border-radius: 8px;
+    color: #edf6ff;
+    background: rgba(7, 11, 17, 0.5);
+    text-align: center;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+    font: 500 0.72rem/1.35 'IBM Plex Mono', monospace;
+    letter-spacing: 0.01em;
+    word-break: break-word;
   }
 
   .taskbar {
@@ -2506,6 +3253,26 @@
     font: 700 14px/1 'IBM Plex Mono', monospace;
   }
 
+  .app-icon.notepad {
+    background: linear-gradient(180deg, #f6f0df, #dccfb1);
+    box-shadow: inset 0 0 0 1px rgba(83, 69, 41, 0.24);
+  }
+
+  .app-icon.notepad::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    right: 5px;
+    top: 6px;
+    bottom: 5px;
+    border-radius: 3px;
+    background:
+      linear-gradient(rgba(74, 110, 202, 0.34) 0 1px, transparent 1px 100%),
+      linear-gradient(180deg, transparent 0 4px, rgba(196, 86, 86, 0.42) 4px 100%),
+      rgba(255, 251, 242, 0.96);
+    background-size: 100% 6px, 100% 100%, auto;
+  }
+
   .app-icon.chat {
     background: linear-gradient(135deg, #7f74ff, #5964ff);
   }
@@ -2582,9 +3349,23 @@
     overflow: hidden;
   }
 
+  .notepad-window {
+    position: fixed;
+    z-index: 28;
+    display: block;
+    background: #eadfc8;
+    border: 1px solid rgba(42, 35, 25, 0.7);
+    border-radius: 10px;
+    box-shadow:
+      0 28px 90px rgba(0, 0, 0, 0.34),
+      inset 0 1px 0 rgba(255, 255, 255, 0.52);
+    overflow: hidden;
+  }
+
   .browser-window.maximized,
   .terminal-window.maximized,
-  .files-window.maximized {
+  .files-window.maximized,
+  .notepad-window.maximized {
     inset: 8px 8px 74px 8px;
     width: auto !important;
     height: auto !important;
@@ -2592,12 +3373,348 @@
 
   .browser-window.minimized,
   .terminal-window.minimized,
-  .files-window.minimized {
+  .files-window.minimized,
+  .notepad-window.minimized {
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
   }
 
   .browser-bar {
     background: #2f3133;
+  }
+
+  .notepad-bar {
+    position: absolute;
+    inset: 0 0 auto 0;
+    z-index: 5;
+    height: 50px;
+    min-height: 50px;
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    padding: 0 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: #2c2b2b;
+    box-shadow: none;
+  }
+
+  .notepad-bar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: #2c2b2b;
+  }
+
+  .notepad-chrome-fill {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    background: #2c2b2b;
+  }
+
+  .notepad-title-spacer {
+    position: relative;
+    z-index: 1;
+    display: block;
+    min-width: 190px;
+    background: transparent !important;
+    background-image: none !important;
+  }
+
+  .notepad-controls {
+    position: relative;
+    z-index: 1;
+  }
+
+  .icon-note {
+    background: linear-gradient(180deg, #f7f0df, #dccfb1);
+    border: 1px solid rgba(90, 70, 38, 0.2);
+  }
+
+  .icon-note::before {
+    content: '';
+    position: absolute;
+    inset: 2px 3px 3px;
+    border-radius: 2px;
+    background:
+      linear-gradient(rgba(74, 110, 202, 0.34) 0 1px, transparent 1px 100%),
+      rgba(255, 251, 242, 0.96);
+    background-size: 100% 5px;
+  }
+
+  .notepad-surface {
+    position: relative;
+    height: 100%;
+    padding-top: 50px;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(250, 243, 229, 0.82)),
+      #f6efde;
+    color: #2b2418;
+  }
+
+  .notepad-sidebar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
+    width: min(340px, 86%);
+    min-width: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    border-left: 1px solid rgba(89, 70, 39, 0.18);
+    background:
+      linear-gradient(180deg, rgba(255, 252, 245, 0.98), rgba(236, 223, 195, 0.98));
+    box-shadow: -24px 0 48px rgba(55, 39, 18, 0.18);
+    transform: translateX(100%);
+    transition: transform 0.18s ease;
+  }
+
+  .notepad-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .notepad-sidebar-head,
+  .notepad-sidebar-footer,
+  .notepad-toolbar,
+  .notepad-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.8rem 1rem;
+    background: rgba(255, 251, 242, 0.64);
+  }
+
+  .notepad-sidebar-head,
+  .notepad-toolbar {
+    border-bottom: 1px solid rgba(89, 70, 39, 0.14);
+  }
+
+  .notepad-status {
+    border-top: 1px solid rgba(89, 70, 39, 0.14);
+    font: 500 0.72rem/1.4 'IBM Plex Mono', monospace;
+    color: rgba(63, 49, 29, 0.76);
+  }
+
+  .notepad-sidebar-head p,
+  .notepad-sidebar-head strong,
+  .notepad-note-card p,
+  .notepad-note-card strong,
+  .notepad-note-card span {
+    margin: 0;
+  }
+
+  .notepad-sidebar-head p {
+    color: rgba(85, 65, 35, 0.68);
+    font: 600 0.68rem/1.2 'IBM Plex Mono', monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .notepad-sidebar-head strong {
+    color: #322716;
+    font: 700 1rem/1.2 'Space Grotesk', sans-serif;
+  }
+
+  .notepad-note-list {
+    min-height: 0;
+    overflow: auto;
+    display: grid;
+    gap: 0.65rem;
+    padding: 0.85rem;
+  }
+
+  .notepad-note-card {
+    display: grid;
+    gap: 0.35rem;
+    text-align: left;
+    padding: 0.85rem;
+    border: 1px solid rgba(104, 84, 53, 0.14);
+    border-radius: 12px;
+    background: rgba(255, 251, 242, 0.74);
+    color: #312617;
+    cursor: pointer;
+    transition:
+      transform 0.14s ease,
+      border-color 0.14s ease,
+      background-color 0.14s ease;
+  }
+
+  .notepad-note-card:hover,
+  .notepad-note-card:focus-visible,
+  .notepad-note-card.selected {
+    transform: translateY(-1px);
+    border-color: rgba(134, 102, 44, 0.34);
+    background: rgba(255, 248, 235, 0.96);
+  }
+
+  .notepad-note-card strong {
+    font: 700 0.94rem/1.25 'Space Grotesk', sans-serif;
+  }
+
+  .notepad-note-card span,
+  .notepad-note-card p,
+  .notepad-sidebar-footer span {
+    font: 500 0.72rem/1.45 'IBM Plex Mono', monospace;
+    color: rgba(79, 60, 31, 0.74);
+  }
+
+  .notepad-main {
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .notepad-field {
+    display: grid;
+    gap: 0.35rem;
+    flex: 1 1 240px;
+    min-width: 180px;
+  }
+
+  .notepad-field span {
+    font: 600 0.68rem/1.2 'IBM Plex Mono', monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(85, 65, 35, 0.68);
+  }
+
+  .notepad-field input {
+    min-height: 38px;
+    padding: 0 0.8rem;
+    border: 1px solid rgba(103, 83, 53, 0.2);
+    border-radius: 10px;
+    background: rgba(255, 252, 245, 0.96);
+    color: #2f2618;
+    font: 600 0.9rem/1 'Space Grotesk', sans-serif;
+  }
+
+  .notepad-meta {
+    display: grid;
+    justify-items: end;
+    gap: 0.3rem;
+    text-align: right;
+    min-width: 160px;
+  }
+
+  .notepad-meta strong {
+    color: #332818;
+    font: 700 0.95rem/1.2 'Space Grotesk', sans-serif;
+  }
+
+  .notepad-meta span {
+    color: rgba(79, 60, 31, 0.72);
+    font: 500 0.72rem/1.35 'IBM Plex Mono', monospace;
+  }
+
+  .notepad-side-action,
+  .notepad-inline-action {
+    min-height: 34px;
+    padding: 0 0.8rem;
+    border: 1px solid rgba(112, 84, 37, 0.2);
+    border-radius: 999px;
+    background: rgba(255, 248, 235, 0.92);
+    color: #322616;
+    cursor: pointer;
+    font: 600 0.72rem/1 'IBM Plex Mono', monospace;
+    transition:
+      background-color 0.14s ease,
+      border-color 0.14s ease;
+  }
+
+  .notepad-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .notepad-icon-button {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid rgba(112, 84, 37, 0.18);
+    border-radius: 10px;
+    background: rgba(255, 248, 235, 0.96);
+    cursor: pointer;
+  }
+
+  .notepad-icon-button span {
+    display: block;
+    width: 16px;
+    height: 2px;
+    border-radius: 999px;
+    background: #332616;
+  }
+
+  .notepad-icon-button:not(.close) {
+    gap: 4px;
+  }
+
+  .notepad-icon-button.close span {
+    position: absolute;
+  }
+
+  .notepad-icon-button.close span:first-child {
+    transform: rotate(45deg);
+  }
+
+  .notepad-icon-button.close span:last-child {
+    transform: rotate(-45deg);
+  }
+
+  .notepad-side-action.dark {
+    background: rgba(58, 43, 21, 0.92);
+    border-color: rgba(58, 43, 21, 0.92);
+    color: #fff7ea;
+  }
+
+  .notepad-side-action:hover,
+  .notepad-side-action:focus-visible,
+  .notepad-inline-action:hover,
+  .notepad-inline-action:focus-visible {
+    border-color: rgba(112, 84, 37, 0.42);
+    background: rgba(255, 244, 221, 0.98);
+  }
+
+  .notepad-side-action.dark:hover,
+  .notepad-side-action.dark:focus-visible {
+    background: rgba(73, 55, 28, 0.96);
+  }
+
+  .notepad-editor {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 1.25rem 1.35rem 1.4rem 2.35rem;
+    border: 0;
+    outline: 0;
+    resize: none;
+    background:
+      linear-gradient(90deg, rgba(194, 87, 87, 0.42) 0 1px, transparent 1px 100%),
+      linear-gradient(rgba(72, 112, 202, 0.28) 0 1px, transparent 1px 100%),
+      rgba(255, 252, 245, 0.98);
+    background-position: 1.45rem 0, 0 0;
+    background-size: 100% 100%, 100% 1.9rem;
+    color: #2b2418;
+    font: 600 1rem/1.9 'IBM Plex Mono', monospace;
+    caret-color: #1d4eb4;
+  }
+
+  .notepad-editor[readonly] {
+    color: #54442d;
+    cursor: default;
+    caret-color: transparent;
   }
 
   .browser-tab {
@@ -3073,48 +4190,61 @@
   }
 
   .browser-shortcuts {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 1rem;
-    width: min(620px, 100%);
+    display: grid;
+    grid-template-columns: repeat(5, minmax(88px, 1fr));
+    gap: 1.1rem;
+    width: min(560px, 100%);
   }
 
   .browser-shortcuts-left {
+    grid-template-columns: repeat(1, minmax(88px, 112px));
     justify-content: flex-start;
   }
 
   .browser-shortcut {
-    width: 112px;
     display: grid;
     justify-items: center;
-    gap: 0.7rem;
-    padding: 0.9rem 0.5rem;
-    border: 0;
-    border-radius: 18px;
-    background: transparent;
-    color: #e8eaed;
+    gap: 0.8rem;
+    min-height: 122px;
+    padding: 0.9rem 0.55rem 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+    color: #f1f3f4;
     text-decoration: none;
     cursor: pointer;
-    transition: background-color 0.14s ease;
-    font: 400 0.92rem/1.2 'Space Grotesk', sans-serif;
+    transition:
+      transform 0.14s ease,
+      background-color 0.14s ease,
+      border-color 0.14s ease;
+    font: 500 0.9rem/1.2 'Space Grotesk', sans-serif;
   }
 
   .browser-shortcut:hover,
   .browser-shortcut:focus-visible {
-    background: rgba(255, 255, 255, 0.06);
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.1);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.03));
   }
 
   .browser-shortcut-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #5f6368, #3c4043);
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.16), transparent 58%),
+      linear-gradient(180deg, #43464b, #2a2d31);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 12px 24px rgba(0, 0, 0, 0.2);
     position: relative;
   }
 
   .browser-shortcut-icon.portfolio-link {
-    background: linear-gradient(135deg, #4efa7b, #198a55);
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.18), transparent 56%),
+      linear-gradient(135deg, #53ef94, #1f7e4f);
   }
 
   .browser-shortcut-icon.portfolio-link::before {
@@ -3124,69 +4254,121 @@
     display: grid;
     place-items: center;
     color: #08110d;
-    font: 600 12px/1 'IBM Plex Mono', monospace;
+    font: 700 13px/1 'IBM Plex Mono', monospace;
   }
 
   .browser-shortcut-icon.social-icon::before {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    color: white;
-    font: 700 12px/1 'IBM Plex Mono', monospace;
+    content: none;
   }
 
   .browser-shortcut-icon.github-icon {
-    background: linear-gradient(135deg, #2b3137, #11161c);
-  }
-
-  .browser-shortcut-icon.github-icon::before {
-    content: 'GH';
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.12), transparent 56%),
+      linear-gradient(135deg, #2a3138, #11161b);
   }
 
   .browser-shortcut-icon.linkedin-icon {
-    background: linear-gradient(135deg, #1d7cf2, #0a58c8);
-  }
-
-  .browser-shortcut-icon.linkedin-icon::before {
-    content: 'in';
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.12), transparent 56%),
+      linear-gradient(180deg, #f3f6fa, #dce5f1);
   }
 
   .browser-shortcut-icon.resume-icon {
-    border-radius: 10px;
-    background: linear-gradient(180deg, #fff4df, #f7c46d);
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.22), transparent 56%),
+      linear-gradient(180deg, #f4e6c8, #d8b784);
   }
 
-  .browser-shortcut-icon.resume-icon::before {
-    content: '';
+  .browser-shortcut-icon.social-icon img {
     position: absolute;
-    inset: 6px 7px 6px 7px;
-    border-radius: 3px;
-    background: rgba(255, 255, 255, 0.9);
+    inset: 50% auto auto 50%;
+    width: 24px;
+    height: 24px;
+    transform: translate(-50%, -50%);
+    object-fit: contain;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.22));
+  }
+
+  .linkedin-mark {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    background: #0a66c2;
+    transform: translate(-50%, -50%);
     box-shadow:
-      0 0 0 1px rgba(173, 100, 15, 0.18),
-      0 4px 0 -3px rgba(173, 100, 15, 0.32),
-      0 8px 0 -7px rgba(173, 100, 15, 0.28);
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      0 6px 14px rgba(10, 102, 194, 0.24);
   }
 
-  .browser-shortcut-icon.resume-icon::after {
+  .linkedin-mark span {
+    color: #ffffff;
+    font: 700 14px/1 'Arial', sans-serif;
+    letter-spacing: -0.08em;
+    transform: translateY(-0.5px);
+  }
+
+  .resume-sheet {
+    position: absolute;
+    inset: 9px 11px;
+    border-radius: 7px;
+    background:
+      linear-gradient(rgba(183, 77, 77, 0.26) 0 2px, transparent 2px 7px),
+      linear-gradient(90deg, rgba(224, 86, 86, 0.18) 0 2px, transparent 2px 100%),
+      rgba(255, 251, 244, 0.96);
+    background-size: 100% 9px, 100% 100%, auto;
+    box-shadow:
+      0 0 0 1px rgba(126, 91, 41, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .resume-sheet::before {
     content: '';
     position: absolute;
-    top: 6px;
-    right: 7px;
-    width: 7px;
-    height: 7px;
-    background: rgba(255, 255, 255, 0.96);
-    clip-path: polygon(0 0, 100% 0, 100% 100%);
-    box-shadow: -1px 1px 0 0 rgba(173, 100, 15, 0.18);
+    top: 0;
+    right: 0;
+    width: 11px;
+    height: 11px;
+    border-radius: 0 7px 0 6px;
+    background: linear-gradient(135deg, rgba(219, 197, 157, 0.95) 0 49%, rgba(255, 251, 244, 0.96) 50% 100%);
   }
 
   .browser-shortcut-icon.email-icon {
-    background: linear-gradient(135deg, #c084fc, #7c3aed);
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 56%),
+      linear-gradient(180deg, #f6f7f9, #dfe4ea);
   }
 
-  .browser-shortcut-icon.email-icon::before {
-    content: '@';
+  .gmail-mark {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: 30px;
+    height: 22px;
+    border-radius: 4px;
+    background:
+      linear-gradient(135deg, transparent 0 46%, #ea4335 46% 54%, transparent 54% 100%),
+      linear-gradient(225deg, transparent 0 46%, #ea4335 46% 54%, transparent 54% 100%),
+      linear-gradient(90deg, #34a853 0 18%, transparent 18% 82%, #4285f4 82% 100%),
+      linear-gradient(180deg, #ffffff 0 100%);
+    border: 1px solid rgba(123, 133, 148, 0.22);
+    transform: translate(-50%, -50%);
+    box-shadow:
+      0 6px 14px rgba(0, 0, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .gmail-mark::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    top: 4px;
+    bottom: 4px;
+    border-bottom: 2px solid rgba(234, 67, 53, 0.95);
+    clip-path: polygon(0 0, 50% 52%, 100% 0, 100% 100%, 0 100%);
   }
 
   .browser-results,
@@ -4684,6 +5866,36 @@
     background: white;
   }
 
+  .notepad-window > .notepad-bar {
+    min-height: 50px;
+    align-items: stretch;
+    padding: 0 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: #2c2b2b !important;
+    background-image: none !important;
+    box-shadow: none;
+  }
+
+  .notepad-window .notepad-title-spacer {
+    background: transparent !important;
+    background-image: none !important;
+  }
+
+  .notepad-window .notepad-controls .control-minimize::before {
+    background: rgba(255, 255, 255, 0.72);
+  }
+
+  .notepad-window .notepad-controls .control-maximize::before {
+    border-color: rgba(255, 255, 255, 0.66);
+    background: transparent;
+  }
+
+  .notepad-window .notepad-controls .control-close::before,
+  .notepad-window .notepad-controls .control-close::after {
+    background: rgba(255, 255, 255, 0.82);
+  }
+
+
   .terminal-surface {
     min-height: 0;
     display: grid;
@@ -4992,6 +6204,68 @@
   }
 
   @media (max-width: 720px) {
+    .browser-shortcuts {
+      grid-template-columns: repeat(2, minmax(88px, 1fr));
+      width: min(280px, 100%);
+    }
+
+    .notepad-toolbar,
+    .notepad-status,
+    .notepad-sidebar-head,
+    .notepad-sidebar-footer {
+      align-items: start;
+      flex-direction: column;
+    }
+
+    .notepad-field,
+    .notepad-meta {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .notepad-meta {
+      justify-items: start;
+      text-align: left;
+    }
+
+    .notepad-surface {
+      grid-template-columns: 1fr;
+    }
+
+    .notepad-sidebar {
+      width: min(320px, 92%);
+      border-bottom: 0;
+    }
+
+    .desktop-shortcuts {
+      grid-template-columns: repeat(3, minmax(78px, 1fr));
+      gap: 0.8rem 0.65rem;
+      width: 100%;
+      max-width: none;
+      padding: 1rem 0.75rem 7rem;
+    }
+
+    .desktop-shortcut {
+      min-height: 96px;
+      padding-inline: 0.1rem;
+    }
+
+    .desktop-shortcut-icon,
+    .desktop-game-icon {
+      width: 60px;
+      height: 60px;
+    }
+
+    .desktop-folder-icon {
+      width: 50px;
+      height: 38px;
+    }
+
+    .desktop-shortcut-label {
+      max-width: 74px;
+      font-size: 0.64rem;
+    }
+
     .dog-feature,
     .dog-stats,
     .dog-detail-layout {
@@ -5026,6 +6300,13 @@
     }
 
     .files-window {
+      left: 8px !important;
+      top: 18px !important;
+      width: calc(100vw - 16px) !important;
+      height: min(560px, calc(100vh - 110px)) !important;
+    }
+
+    .notepad-window {
       left: 8px !important;
       top: 18px !important;
       width: calc(100vw - 16px) !important;
